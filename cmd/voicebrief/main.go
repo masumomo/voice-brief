@@ -29,7 +29,7 @@ func main() {
 	switch command {
 	case "version":
 		fmt.Println("VoiceBrief", version)
-		fmt.Println("育児中エンジニアのための音声キャッチアップツール")
+		fmt.Println("音声で聞く、チームの最新情報")
 	case "config":
 		if len(os.Args) < 3 {
 			fmt.Println("エラー: サブコマンドを指定してください (例: config check)")
@@ -563,7 +563,7 @@ func getConfigPath() string {
 
 func printUsage() {
 	fmt.Println("VoiceBrief", version)
-	fmt.Println("育児中エンジニアのための音声キャッチアップツール")
+	fmt.Println("音声で聞く、チームの最新情報")
 	fmt.Println("\nUsage:")
 	fmt.Println("  voicebrief run --daily          Daily Briefingを生成")
 	fmt.Println("  voicebrief run --weekly         Weekly Briefingを生成")
