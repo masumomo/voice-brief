@@ -95,7 +95,12 @@ func (f *NotionFetcher) fetchDatabase(ctx context.Context, database config.Datab
 			continue // since より前のページは除外
 		}
 
-		event := f.pageToEvent(&page, database)
+		// プロパティフィルタ適用
+		if !f.matchesPropertyFilters(&page, database.PropertyFilters) {
+			continue // フィルタ条件に合わないページは除外
+		}
+
+		event := f.pageToEvent(ctx, &page, database)
 		events = append(events, event)
 	}
 
@@ -103,7 +108,7 @@ func (f *NotionFetcher) fetchDatabase(ctx context.Context, database config.Datab
 }
 
 // pageToEvent はNotionページをEventに変換します
-func (f *NotionFetcher) pageToEvent(page *notionapi.Page, database config.DatabaseConfig) *model.Event {
+func (f *NotionFetcher) pageToEvent(ctx context.Context, page *notionapi.Page, database config.DatabaseConfig) *model.Event {
 	event := model.NewEvent(model.EventSourceNotion)
 
 	event.ID = string(page.ID)
@@ -116,6 +121,14 @@ func (f *NotionFetcher) pageToEvent(page *notionapi.Page, database config.Databa
 
 	// プロパティ情報を本文に含める
 	event.Body = f.extractProperties(page, database.Properties)
+
+	// ページ本文取得（オプション）
+	if database.FetchPageContent {
+		pageContent := f.fetchPageContent(ctx, notionapi.PageID(page.ID))
+		if pageContent != "" {
+			event.Body = event.Body + "\n\n" + pageContent
+		}
+	}
 
 	// 最終編集者
 	// User情報は簡易的にIDを使用（詳細取得はAPI制限を考慮して省略）
@@ -131,7 +144,14 @@ func (f *NotionFetcher) pageToEvent(page *notionapi.Page, database config.Databa
 	event.Refs["page_id"] = string(page.ID)
 
 	// カテゴリの判定（プロパティから）
-	event.Category = f.detectCategoryFromProperties(page, database.Properties)
+	event.Category = f.detectCategoryFromProperties(page, database)
+
+	// プロジェクト情報の追加
+	if database.ProjectProperty != "" {
+		if project := f.getPropertyValue(page, database.ProjectProperty); project != "" {
+			event.Refs["project"] = project
+		}
+	}
 
 	return event
 }
@@ -228,9 +248,16 @@ func (f *NotionFetcher) formatPropertyValue(prop notionapi.Property) string {
 }
 
 // detectCategoryFromProperties はプロパティからカテゴリを判定します
-func (f *NotionFetcher) detectCategoryFromProperties(page *notionapi.Page, targetProps []string) string {
+func (f *NotionFetcher) detectCategoryFromProperties(page *notionapi.Page, database config.DatabaseConfig) string {
+	// CategoryProperty が指定されている場合はそれを優先
+	if database.CategoryProperty != "" {
+		if value := f.getPropertyValue(page, database.CategoryProperty); value != "" {
+			return f.mapToCategory(value)
+		}
+	}
+
 	// Status や Tag などから判定
-	for _, propName := range targetProps {
+	for _, propName := range database.Properties {
 		if prop, exists := page.Properties[propName]; exists {
 			value := strings.ToLower(f.formatPropertyValue(prop))
 
@@ -262,6 +289,26 @@ func (f *NotionFetcher) detectCategoryFromProperties(page *notionapi.Page, targe
 	return model.EventCategoryOther
 }
 
+// mapToCategory はプロパティ値をカテゴリにマッピングします
+func (f *NotionFetcher) mapToCategory(value string) string {
+	lower := strings.ToLower(value)
+
+	if containsAny(lower, []string{"incident", "障害", "問題", "blocked"}) {
+		return model.EventCategoryIncident
+	}
+	if containsAny(lower, []string{"dev", "開発", "技術", "development"}) {
+		return model.EventCategoryDev
+	}
+	if containsAny(lower, []string{"biz", "business", "ビジネス", "営業"}) {
+		return model.EventCategoryBiz
+	}
+	if containsAny(lower, []string{"ops", "運用", "インフラ", "operations"}) {
+		return model.EventCategoryOps
+	}
+
+	return model.EventCategoryOther
+}
+
 // extractRichText はRichTextの配列からプレーンテキストを抽出します
 func extractRichText(richTexts []notionapi.RichText) string {
 	parts := make([]string, 0)
@@ -269,4 +316,81 @@ func extractRichText(richTexts []notionapi.RichText) string {
 		parts = append(parts, rt.PlainText)
 	}
 	return strings.Join(parts, "")
+}
+
+// matchesPropertyFilters はページがプロパティフィルタに一致するかチェックします
+func (f *NotionFetcher) matchesPropertyFilters(page *notionapi.Page, filters map[string]string) bool {
+	if len(filters) == 0 {
+		return true // フィルタなしの場合は全て通過
+	}
+
+	for propName, expectedValue := range filters {
+		actualValue := f.getPropertyValue(page, propName)
+		if actualValue != expectedValue {
+			return false // フィルタ条件に合わない
+		}
+	}
+
+	return true
+}
+
+// getPropertyValue はプロパティ値を文字列として取得します
+func (f *NotionFetcher) getPropertyValue(page *notionapi.Page, propName string) string {
+	prop, exists := page.Properties[propName]
+	if !exists {
+		return ""
+	}
+
+	return f.formatPropertyValue(prop)
+}
+
+// fetchPageContent はページの本文（ブロック）を取得します
+func (f *NotionFetcher) fetchPageContent(ctx context.Context, pageID notionapi.PageID) string {
+	// ページのブロック（本文）を取得
+	blocks, err := f.client.Block.GetChildren(ctx, notionapi.BlockID(pageID), nil)
+	if err != nil {
+		// エラーの場合は空文字列を返す（Best Effort）
+		return ""
+	}
+
+	// ブロックからテキストを抽出（簡易版：最初の3つのブロックのみ）
+	textParts := make([]string, 0)
+	for i, block := range blocks.Results {
+		if i >= 3 {
+			break // 最初の3ブロックのみ
+		}
+
+		text := f.extractBlockText(block)
+		if text != "" {
+			textParts = append(textParts, text)
+		}
+	}
+
+	return strings.Join(textParts, "\n")
+}
+
+// extractBlockText はブロックからテキストを抽出します
+func (f *NotionFetcher) extractBlockText(block notionapi.Block) string {
+	switch block.GetType() {
+	case notionapi.BlockTypeParagraph:
+		paragraphBlock := block.(*notionapi.ParagraphBlock)
+		return extractRichText(paragraphBlock.Paragraph.RichText)
+	case notionapi.BlockTypeHeading1:
+		heading1Block := block.(*notionapi.Heading1Block)
+		return extractRichText(heading1Block.Heading1.RichText)
+	case notionapi.BlockTypeHeading2:
+		heading2Block := block.(*notionapi.Heading2Block)
+		return extractRichText(heading2Block.Heading2.RichText)
+	case notionapi.BlockTypeHeading3:
+		heading3Block := block.(*notionapi.Heading3Block)
+		return extractRichText(heading3Block.Heading3.RichText)
+	case notionapi.BlockTypeBulletedListItem:
+		bulletBlock := block.(*notionapi.BulletedListItemBlock)
+		return "• " + extractRichText(bulletBlock.BulletedListItem.RichText)
+	case notionapi.BlockTypeNumberedListItem:
+		numberedBlock := block.(*notionapi.NumberedListItemBlock)
+		return extractRichText(numberedBlock.NumberedListItem.RichText)
+	default:
+		return ""
+	}
 }

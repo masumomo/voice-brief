@@ -60,9 +60,13 @@ type NotionConfig struct {
 
 // DatabaseConfig はNotionデータベース設定
 type DatabaseConfig struct {
-	ID         string   `yaml:"id"`
-	Name       string   `yaml:"name"`
-	Properties []string `yaml:"properties"`
+	ID                string            `yaml:"id"`
+	Name              string            `yaml:"name"`
+	Properties        []string          `yaml:"properties"`
+	FetchPageContent  bool              `yaml:"fetch_page_content"`  // ページ本文を取得するか
+	PropertyFilters   map[string]string `yaml:"property_filters"`    // プロパティフィルタ (例: Status: "In Progress")
+	CategoryProperty  string            `yaml:"category_property"`   // カテゴリ判定に使うプロパティ
+	ProjectProperty   string            `yaml:"project_property"`    // プロジェクト判定に使うプロパティ
 }
 
 // GitHubConfig はGitHub関連設定
