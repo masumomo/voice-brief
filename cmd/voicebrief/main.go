@@ -263,13 +263,42 @@ func fetchEvents(ctx context.Context, cfg *config.Config, briefType model.BriefT
 
 // generateBrief はブリーフィングを生成します
 func generateBrief(cfg *config.Config, events model.Events, briefType model.BriefType) (*model.Brief, error) {
-	// 現在はルールベース要約のみサポート
-	sum := summarizer.NewRuleSummarizer(cfg.Brief.MaxItemsDaily, cfg.Brief.MaxItemsWeekly)
+	// Provider に応じて Summarizer を選択
+	switch cfg.Summarizer.Provider {
+	case "gemini":
+		// Gemini API Key を環境変数から取得
+		apiKey := summarizer.GetAPIKey(cfg.Summarizer.GeminiAPIKey)
+		if apiKey == "" {
+			return nil, fmt.Errorf("Gemini API Key が設定されていません（環境変数: %s）", cfg.Summarizer.GeminiAPIKey)
+		}
 
-	if briefType == model.BriefTypeDaily {
-		return sum.GenerateDaily(events)
+		sum, err := summarizer.NewGeminiSummarizer(
+			apiKey,
+			cfg.Summarizer.GeminiModel,
+			cfg.Brief.MaxItemsDaily,
+			cfg.Brief.MaxItemsWeekly,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("Gemini Summarizer の初期化に失敗: %w", err)
+		}
+		defer sum.Close()
+
+		if briefType == model.BriefTypeDaily {
+			return sum.GenerateDaily(events)
+		}
+		return sum.GenerateWeekly(events)
+
+	case "rule":
+		fallthrough
+	default:
+		// ルールベース要約
+		sum := summarizer.NewRuleSummarizer(cfg.Brief.MaxItemsDaily, cfg.Brief.MaxItemsWeekly)
+
+		if briefType == model.BriefTypeDaily {
+			return sum.GenerateDaily(events)
+		}
+		return sum.GenerateWeekly(events)
 	}
-	return sum.GenerateWeekly(events)
 }
 
 // saveMarkdown はMarkdownを保存します
@@ -313,6 +342,16 @@ func generateAudio(ctx context.Context, cfg *config.Config, brief *model.Brief, 
 	switch cfg.TTS.Provider {
 	case "say":
 		ttsEngine = tts.NewSayTTS(ttsConfig)
+	case "google_tts":
+		// Google Cloud認証情報を取得
+		credentialsJSON := tts.GetCredentialsJSON(cfg.TTS.GoogleCredentialsJSONEnv)
+
+		googleTTS, err := tts.NewGoogleTTS(ctx, ttsConfig, credentialsJSON)
+		if err != nil {
+			return "", fmt.Errorf("Google TTS の初期化に失敗: %w", err)
+		}
+		defer googleTTS.Close()
+		ttsEngine = googleTTS
 	default:
 		return "", fmt.Errorf("未対応のTTSプロバイダー: %s", cfg.TTS.Provider)
 	}

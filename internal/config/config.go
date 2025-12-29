@@ -90,10 +90,11 @@ type SummarizerConfig struct {
 
 // TTSConfig は音声合成設定
 type TTSConfig struct {
-	Provider string  `yaml:"provider"` // "say" or "google_tts"
-	Voice    string  `yaml:"voice"`
-	Rate     float64 `yaml:"rate"`
-	Format   string  `yaml:"format"` // "aiff", "m4a", "mp3"
+	Provider                   string  `yaml:"provider"`                       // "say" or "google_tts"
+	Voice                      string  `yaml:"voice"`
+	Rate                       float64 `yaml:"rate"`
+	Format                     string  `yaml:"format"`                         // "aiff", "m4a", "mp3"
+	GoogleCredentialsJSONEnv   string  `yaml:"google_credentials_json_env"`    // Google認証情報JSON環境変数名
 }
 
 // RuntimeConfig は実行時設定
@@ -156,6 +157,14 @@ func (c *Config) loadTokensFromEnv() error {
 			return fmt.Errorf("環境変数 %s が設定されていません（GitHub連携が有効です）", c.GitHub.TokenEnv)
 		}
 		c.GitHub.Token = token
+	}
+
+	// Gemini API Key（オプション）
+	if c.Summarizer.Provider == "gemini" && c.Summarizer.GeminiAPIKey != "" {
+		apiKey := os.Getenv(c.Summarizer.GeminiAPIKey)
+		if apiKey == "" {
+			return fmt.Errorf("環境変数 %s が設定されていません（Gemini providerを使用する場合は必須）", c.Summarizer.GeminiAPIKey)
+		}
 	}
 
 	// OpenAI API Key（オプション）
@@ -230,9 +239,13 @@ func (c *Config) Validate() error {
 	if c.Summarizer.Provider == "" {
 		c.Summarizer.Provider = "rule" // デフォルト値
 	}
-	validSummarizerProviders := []string{"rule", "openai"}
+	validSummarizerProviders := []string{"rule", "gemini", "openai"}
 	if !contains(validSummarizerProviders, c.Summarizer.Provider) {
-		return fmt.Errorf("summarizer.provider は rule または openai である必要があります")
+		return fmt.Errorf("summarizer.provider は rule, gemini, openai のいずれかである必要があります")
+	}
+	// Gemini使用時のデフォルトモデル
+	if c.Summarizer.Provider == "gemini" && c.Summarizer.GeminiModel == "" {
+		c.Summarizer.GeminiModel = "gemini-2.0-flash-exp" // デフォルト値
 	}
 
 	// TTS設定の検証

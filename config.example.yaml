@@ -67,9 +67,10 @@ summarizer:
 # 音声合成設定
 tts:
   provider: "say"  # "say" | "google_tts"
-  voice: "Kyoko"   # say使用時の音声（Kyoko, Otoya等）
+  voice: "Kyoko"   # say: Kyoko, Otoya等 / google_tts: ja-JP-Neural2-B等
   rate: 1.1        # 読み上げ速度（倍速）
-  format: "m4a"    # 出力形式: aiff, m4a, mp3
+  format: "m4a"    # say: aiff, m4a, mp3 / google_tts: mp3, ogg, wav
+  # google_credentials_json_env: "GOOGLE_APPLICATION_CREDENTIALS_JSON"  # Google TTS使用時の認証情報環境変数名
 
 # 実行時設定
 runtime:

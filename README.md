@@ -10,7 +10,8 @@ VoiceBriefは、SlackとNotionの更新情報を自動的に収集し、音声�
 ### 主な特徴
 
 - **完全ローカル動作**: 生データをディスクに保存せず、プライバシーを保護
-- **音声でキャッチアップ**: macOS標準TTSで音声ファイルを生成
+- **AI要約対応**: Gemini 2.0 Flash（無料枠）による自然な要約生成
+- **高品質音声合成**: macOS標準TTS or Google Cloud TTS（WaveNet音声）
 - **並列高速取得**: SlackとNotionから同時並行でデータを取得
 - **重要度フィルタリング**: ノイズを除外し、重要な情報のみを抽出
 - **定期自動実行**: launchdで毎朝自動的にブリーフィング生成
@@ -95,6 +96,41 @@ VOICE_BRIEF_NOTION_TOKEN="secret_your-token-here"
 
 7. 監視したいNotionデータベースで「・・・」→「Connections」→作成したIntegrationを追加
 
+#### Gemini API Key（オプション）
+
+AI要約機能を使用する場合は、Gemini API Keyが必要です。
+
+1. https://aistudio.google.com/app/apikey にアクセス
+2. 「Create API Key」でAPIキーを作成
+3. `.env`ファイルに設定:
+
+```bash
+GEMINI_API_KEY="your-gemini-api-key-here"
+```
+
+**無料枠:** 毎分15リクエスト、毎日1500リクエストまで無料で利用可能
+
+#### Google Cloud TTS認証情報（オプション）
+
+高品質な日本語音声合成（WaveNet）を使用する場合は、Google Cloud認証情報が必要です。
+
+1. https://console.cloud.google.com/ にアクセス
+2. プロジェクトを作成（または既存のプロジェクトを選択）
+3. Cloud Text-to-Speech APIを有効化
+4. サービスアカウントキー（JSON）を作成してダウンロード
+5. JSONファイルの内容を`.env`ファイルに設定:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS_JSON='{"type":"service_account",...}'
+```
+
+**または、gcloud CLIで認証:**
+```bash
+gcloud auth application-default login
+```
+
+**無料枠:** 毎月100万文字まで無料（WaveNetとStandard合計）
+
 ### 5. config.yamlの編集
 
 ```yaml
@@ -108,6 +144,19 @@ notion:
     - id: "db-uuid-xxxx"  # 実際のDatabase IDに変更
       name: "Task Board"
       properties: ["Status", "Assignee"]
+
+# 要約エンジン設定（オプション）
+summarizer:
+  provider: "rule"  # "rule" (ルールベース) | "gemini" (AI要約)
+  # gemini_model: "gemini-2.0-flash-exp"  # Gemini使用時のモデル
+  # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini API Key環境変数名
+
+# 音声合成設定（オプション）
+tts:
+  provider: "say"  # "say" (macOS標準) | "google_tts" (Google Cloud TTS)
+  voice: "Kyoko"   # say: Kyoko, Otoya等 / google_tts: ja-JP-Neural2-B等
+  rate: 1.1        # 読み上げ速度（倍速）
+  # google_credentials_json_env: "GOOGLE_APPLICATION_CREDENTIALS_JSON"  # Google TTS使用時
 ```
 
 **Channel IDの確認方法:**
@@ -356,8 +405,10 @@ cat out/daily/$(date +%Y-%m-%d).md
 
 - **v1.0** (Current): Daily/Weekly実行、Rule-based要約、macOS say TTS
 - **v1.1**: Slackスレッド対応、Notionプロパティフィルタ強化
-- **v1.2**: OpenAI要約・TTS統合、iPhoneショートカット連携
-- **v2.0**: マルチプラットフォーム対応、Web UI
+- **v1.2**: Gemini AI要約統合、iPhoneショートカット連携
+- **v2.0**: Windows対応
+- **v2.1**: OpenAI統合（要約・TTS）
+- **v2.2**: GitHub統合
 
 ## ライセンス
 
