@@ -288,6 +288,42 @@ func generateBrief(cfg *config.Config, events model.Events, briefType model.Brie
 		}
 		return sum.GenerateWeekly(events)
 
+	case "openai":
+		// OpenAI API Key を環境変数から取得
+		apiKey := summarizer.GetAPIKey(cfg.Summarizer.OpenAIAPIKey)
+		if apiKey == "" {
+			return nil, fmt.Errorf("OpenAI API Key が設定されていません（環境変数: %s）", cfg.Summarizer.OpenAIAPIKey)
+		}
+
+		sum, err := summarizer.NewOpenAISummarizer(
+			apiKey,
+			cfg.Summarizer.OpenAIModel,
+			cfg.Brief.MaxItemsDaily,
+			cfg.Brief.MaxItemsWeekly,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("OpenAI Summarizer の初期化に失敗: %w", err)
+		}
+
+		var brief *model.Brief
+		if briefType == model.BriefTypeDaily {
+			brief, err = sum.GenerateDaily(events)
+		} else {
+			brief, err = sum.GenerateWeekly(events)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		// コスト情報を表示
+		total, prompt, completion := sum.GetTokenUsage()
+		cost := sum.EstimateCost()
+		fmt.Printf("💰 OpenAI コスト: $%.6f (Total: %d tokens, Prompt: %d, Completion: %d)\n",
+			cost, total, prompt, completion)
+
+		return brief, nil
+
 	case "rule":
 		fallthrough
 	default:
@@ -354,6 +390,15 @@ func generateAudio(ctx context.Context, cfg *config.Config, brief *model.Brief, 
 		}
 		defer googleTTS.Close()
 		ttsEngine = googleTTS
+	case "openai_tts":
+		// OpenAI API Key を環境変数から取得
+		apiKey := os.Getenv("OPENAI_API_KEY")
+		if apiKey == "" {
+			return "", fmt.Errorf("環境変数 OPENAI_API_KEY が設定されていません")
+		}
+
+		openaiTTS := tts.NewOpenAITTS(ttsConfig, apiKey)
+		ttsEngine = openaiTTS
 	default:
 		return "", fmt.Errorf("未対応のTTSプロバイダー: %s", cfg.TTS.Provider)
 	}

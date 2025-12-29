@@ -20,7 +20,8 @@
       "Bash(tree:*)",
       "Bash(git add:*)",
       "Bash(go tool cover:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(git tag -a:*)"
     ],
     "deny": [],
     "ask": []

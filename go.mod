@@ -22,6 +22,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jomei/notionapi v1.13.3 // indirect
+	github.com/sashabaranov/go-openai v1.41.2 // indirect
 	github.com/slack-go/slack v0.17.3 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect

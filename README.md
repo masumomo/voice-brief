@@ -132,6 +132,31 @@ gcloud auth application-default login
 
 **無料枠:** 毎月100万文字まで無料（WaveNetとStandard合計）
 
+#### OpenAI API Key（オプション）
+
+高品質なAI要約または音声合成を使用する場合は、OpenAI API Keyが必要です。
+
+1. https://platform.openai.com/api-keys にアクセス
+2. 「Create new secret key」でAPIキーを作成
+3. `.env`ファイルに追加：
+
+```bash
+OPENAI_API_KEY="sk-your-openai-key-here"
+```
+
+**コスト目安（従量課金）:**
+
+| サービス | モデル | Daily実行 | Weekly実行 |
+|---------|--------|----------|-----------|
+| Summarizer | gpt-4o-mini | $0.001-0.003/回 | $0.003-0.008/回 |
+| Summarizer | gpt-4o | $0.02-0.05/回 | $0.05-0.15/回 |
+| TTS | tts-1 | $0.03-0.06/回 | $0.08-0.15/回 |
+| TTS | tts-1-hd | $0.06-0.12/回 | $0.15-0.30/回 |
+
+**月次コスト試算:**
+- Daily実行（毎日1回、gpt-4o-mini + tts-1）: 約 $1.2-2.7/月
+- Daily + Weekly実行（gpt-4o-mini + tts-1）: 約 $1.5-3.5/月
+
 ### 5. config.yamlの編集
 
 ```yaml
@@ -148,14 +173,16 @@ notion:
 
 # 要約エンジン設定（オプション）
 summarizer:
-  provider: "rule"  # "rule" (ルールベース) | "gemini" (AI要約)
+  provider: "rule"  # "rule" | "gemini" (無料) | "openai" (従量課金)
   # gemini_model: "gemini-2.0-flash-exp"  # Gemini使用時のモデル
-  # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini API Key環境変数名
+  # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini使用時
+  # openai_model: "gpt-4o-mini"  # OpenAI使用時（gpt-4o-mini, gpt-4o等）
+  # openai_api_key_env: "OPENAI_API_KEY"  # OpenAI使用時
 
 # 音声合成設定（オプション）
 tts:
-  provider: "say"  # "say" (macOS) | "sapi" (Windows) | "google_tts" (Google Cloud TTS)
-  voice: "Kyoko"   # say/sapi: Kyoko, Otoya等 / google_tts: ja-JP-Neural2-B等
+  provider: "say"  # "say" (macOS) | "sapi" (Windows) | "google_tts" (無料枠) | "openai_tts" (従量課金)
+  voice: "Kyoko"   # say/sapi: Kyoko, Otoya / google_tts: ja-JP-Neural2-B / openai_tts: alloy, nova, shimmer等
   rate: 1.1        # 読み上げ速度（倍速）
   # google_credentials_json_env: "GOOGLE_APPLICATION_CREDENTIALS_JSON"  # Google TTS使用時
 ```
@@ -406,9 +433,9 @@ cat out/daily/$(date +%Y-%m-%d).md
 
 - ✅ **v1.0**: Daily/Weekly実行、Rule-based要約、macOS say TTS
 - ✅ **v1.1**: Slackスレッド対応、Notionプロパティフィルタ強化
-- ✅ **v1.2**: Gemini AI要約統合、Google Cloud TTS
-- ✅ **v2.0** (Current): Windows対応（SAPI TTS）
-- 🚧 **v2.1**: OpenAI統合（要約・TTS）
+- ✅ **v1.2**: Gemini AI要約統合、Google Cloud TTS（無料枠）
+- ✅ **v2.0**: Windows対応（SAPI TTS）
+- ✅ **v2.1** (Current): OpenAI統合（GPT-4o Summarizer + OpenAI TTS）
 - 📋 **v2.2**: GitHub統合
 
 ## ライセンス

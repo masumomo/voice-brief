@@ -87,9 +87,11 @@ type BriefConfig struct {
 
 // SummarizerConfig は要約エンジン設定
 type SummarizerConfig struct {
-	Provider    string `yaml:"provider"` // "rule" or "gemini"
-	GeminiModel string `yaml:"gemini_model"`
+	Provider     string `yaml:"provider"` // "rule" or "gemini" or "openai"
+	GeminiModel  string `yaml:"gemini_model"`
 	GeminiAPIKey string `yaml:"gemini_api_key_env"` // 環境変数名
+	OpenAIModel  string `yaml:"openai_model"`       // "gpt-4o-mini", "gpt-4o", etc.
+	OpenAIAPIKey string `yaml:"openai_api_key_env"` // 環境変数名
 }
 
 // TTSConfig は音声合成設定
@@ -172,10 +174,18 @@ func (c *Config) loadTokensFromEnv() error {
 	}
 
 	// OpenAI API Key（オプション）
-	if c.Summarizer.Provider == "openai" || c.TTS.Provider == "openai_tts" {
+	if c.Summarizer.Provider == "openai" && c.Summarizer.OpenAIAPIKey != "" {
+		apiKey := os.Getenv(c.Summarizer.OpenAIAPIKey)
+		if apiKey == "" {
+			return fmt.Errorf("環境変数 %s が設定されていません（OpenAI Summarizer使用時は必須）", c.Summarizer.OpenAIAPIKey)
+		}
+	}
+
+	// OpenAI API Key for TTS（オプション）
+	if c.TTS.Provider == "openai_tts" {
 		apiKey := os.Getenv("VOICE_BRIEF_OPENAI_API_KEY")
 		if apiKey == "" {
-			return fmt.Errorf("環境変数 VOICE_BRIEF_OPENAI_API_KEY が設定されていません（OpenAI providerを使用する場合は必須）")
+			return fmt.Errorf("環境変数 VOICE_BRIEF_OPENAI_API_KEY が設定されていません（OpenAI TTS使用時は必須）")
 		}
 	}
 
@@ -250,6 +260,10 @@ func (c *Config) Validate() error {
 	// Gemini使用時のデフォルトモデル
 	if c.Summarizer.Provider == "gemini" && c.Summarizer.GeminiModel == "" {
 		c.Summarizer.GeminiModel = "gemini-2.0-flash-exp" // デフォルト値
+	}
+	// OpenAI使用時のデフォルトモデル
+	if c.Summarizer.Provider == "openai" && c.Summarizer.OpenAIModel == "" {
+		c.Summarizer.OpenAIModel = "gpt-4o-mini" // デフォルト値（コスト効率重視）
 	}
 
 	// TTS設定の検証

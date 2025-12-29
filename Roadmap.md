@@ -652,51 +652,98 @@ go build -o voicebrief cmd/voicebrief/main.go
 
 ---
 
-## Phase 7: OpenAI統合（v2.1 - 1週間）
+## Phase 7: OpenAI統合（v2.1 - 1週間） ✅
 
 ### 目標
 
 OpenAI APIによる高品質な要約とTTS
 
-### Phase 7.1: OpenAI Summarizer（3日）
+### Phase 7.1: OpenAI Summarizer（3日） ✅
 
 **タスク:**
 
-- [ ] `internal/summarizer/openai.go`実装
-  - GPT-4による要約生成
-  - プロンプトエンジニアリング
-  - トークン数制御
-  - エラーハンドリング・リトライ
+- [x] `internal/summarizer/openai.go`実装（348行）
+  - GPT-4o/gpt-4o-mini/gpt-4-turboによる要約生成
+  - プロンプトエンジニアリング（Daily/Weekly専用プロンプト）
+  - トークン使用量追跡
+  - リアルタイムコスト表示
 
-- [ ] 設定ファイル拡張
+- [x] 設定ファイル拡張
   - `openai_api_key_env`設定追加
-  - `openai_model`設定追加（gpt-4, gpt-3.5-turbo等）
+  - `openai_model`設定追加（デフォルト: gpt-4o-mini）
 
 **成果物:**
 
-- [ ] OpenAI要約機能
-- [ ] Gemini/Rule-basedとの切り替え機能
+- [x] OpenAI Summarizer実装
+- [x] Gemini/Rule-basedとの切り替え機能
+- [x] トークン使用量・コスト表示機能
 
-### Phase 7.2: OpenAI TTS（2日）
+**実装詳細:**
+
+```go
+// Summarizerの初期化とコスト追跡
+sum, err := summarizer.NewOpenAISummarizer(apiKey, model, maxDaily, maxWeekly)
+brief, err := sum.GenerateDaily(events)
+
+// コスト情報の取得
+total, prompt, completion := sum.GetTokenUsage()
+cost := sum.EstimateCost()
+// 出力: 💰 OpenAI コスト: $0.000123 (Total: 450 tokens)
+```
+
+**コスト目安:**
+- Daily (gpt-4o-mini): $0.001-0.003/回
+- Weekly (gpt-4o-mini): $0.003-0.008/回
+
+### Phase 7.2: OpenAI TTS（2日） ✅
 
 **タスク:**
 
-- [ ] `internal/tts/openai_tts.go`実装
-  - OpenAI TTS API連携
+- [x] `internal/tts/openai_tts.go`実装（147行）
+  - OpenAI TTS API連携（tts-1 / tts-1-hd）
   - 音声選択（alloy, echo, fable, onyx, nova, shimmer）
-  - 速度調整
+  - 速度調整（0.25 - 4.0倍速）
+  - フォーマット選択（mp3, opus, aac, flac）
 
 **成果物:**
 
-- [ ] OpenAI TTS機能
+- [x] OpenAI TTS機能
+- [x] macOS音声名マッピング（Kyoko→nova, Otoya→onyx）
+- [x] 文字数カウント・コスト見積もり機能
 
-### Phase 7.3: コスト管理（1日）
+**設定例:**
+
+```yaml
+tts:
+  provider: "openai_tts"
+  voice: "nova"  # alloy, echo, fable, onyx, nova, shimmer
+  rate: 1.0
+  format: "mp3"  # mp3, opus, aac, flac
+```
+
+**コスト目安:**
+- Daily (tts-1): $0.03-0.06/回
+- Weekly (tts-1): $0.08-0.15/回
+
+### Phase 7.3: コスト管理（1日） ✅
 
 **タスク:**
 
-- [ ] トークン使用量ログ出力
-- [ ] 月次コスト見積もり機能
-- [ ] README にコスト情報追加
+- [x] トークン使用量ログ出力
+  - Summarizer実行時にトークン数とコストを表示
+  - TTS実行時に文字数を追跡
+- [x] コスト見積もり機能
+  - `EstimateCost()`メソッドでリアルタイム計算
+  - モデル別料金設定
+- [x] README にコスト情報追加
+  - 各プロバイダーのコスト比較表
+  - 月次コスト試算
+
+**成果物:**
+
+- [x] リアルタイムコスト表示
+- [x] 月次コスト試算ドキュメント
+- [x] 無料枠 vs 従量課金の比較表
 
 ---
 
@@ -751,7 +798,7 @@ voicebrief run --daily
 | **Phase 4 (v1.1)** | 1週間 | スレッド・プロパティ強化 | ✅ |
 | **Phase 5 (v1.2)** | 5日 | Gemini統合（Summarizer + Google TTS） | ✅ |
 | **Phase 6 (v2.0)** | 3日 | Windows対応（SAPI TTS） | ✅ |
-| **Phase 7 (v2.1)** | 1週間 | OpenAI統合 |  |
+| **Phase 7 (v2.1)** | 1週間 | OpenAI統合（Summarizer + TTS） | ✅ |
 | **Phase 8 (v2.2)** | 3日 | GitHub統合 |  |
 
 ---

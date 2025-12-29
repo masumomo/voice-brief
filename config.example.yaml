@@ -60,16 +60,18 @@ brief:
 
 # 要約エンジン設定
 summarizer:
-  provider: "rule"  # "rule" | "gemini"
+  provider: "rule"  # "rule" | "gemini" | "openai"
   # gemini_model: "gemini-2.0-flash-exp"  # providerがgeminiの場合のみ
-  # gemini_api_key_env: "GEMINI_API_KEY"  # 環境変数名
+  # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini使用時の環境変数名
+  # openai_model: "gpt-4o-mini"  # providerがopenaiの場合（gpt-4o-mini, gpt-4o, gpt-4-turbo等）
+  # openai_api_key_env: "OPENAI_API_KEY"  # OpenAI使用時の環境変数名
 
 # 音声合成設定
 tts:
-  provider: "say"  # "say" (macOS) | "sapi" (Windows) | "google_tts"
-  voice: "Kyoko"   # say/sapi: Kyoko, Otoya等 / google_tts: ja-JP-Neural2-B等
+  provider: "say"  # "say" (macOS) | "sapi" (Windows) | "google_tts" | "openai_tts"
+  voice: "Kyoko"   # say/sapi: Kyoko, Otoya / google_tts: ja-JP-Neural2-B / openai_tts: alloy, echo, fable, onyx, nova, shimmer
   rate: 1.1        # 読み上げ速度（倍速）
-  format: "m4a"    # say: aiff, m4a, mp3 / sapi: wav, mp3 / google_tts: mp3, ogg, wav
+  format: "m4a"    # say: aiff, m4a, mp3 / sapi: wav, mp3 / google_tts: mp3, ogg, wav / openai_tts: mp3, opus, aac, flac
   # google_credentials_json_env: "GOOGLE_APPLICATION_CREDENTIALS_JSON"  # Google TTS使用時の認証情報環境変数名
 
 # 実行時設定
