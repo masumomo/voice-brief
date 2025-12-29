@@ -17,7 +17,10 @@
       "Bash(export VOICE_BRIEF_SLACK_TOKEN=\"xoxb-test\")",
       "Bash(export VOICE_BRIEF_NOTION_TOKEN=\"secret_test\")",
       "Bash(say:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(git add:*)",
+      "Bash(go tool cover:*)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []

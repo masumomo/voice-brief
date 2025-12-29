@@ -11,6 +11,7 @@ import (
 
 	"github.com/masumomo/voice-brief/internal/config"
 	"github.com/masumomo/voice-brief/internal/fetcher"
+	"github.com/masumomo/voice-brief/internal/logger"
 	"github.com/masumomo/voice-brief/internal/model"
 	"github.com/masumomo/voice-brief/internal/summarizer"
 	"github.com/masumomo/voice-brief/internal/tts"
@@ -110,6 +111,20 @@ func handleRunCommand() {
 		cfg.App.LogLevel = logLevel
 	}
 
+	// ロガー初期化
+	level, err := logger.ParseLevel(cfg.App.LogLevel)
+	if err != nil {
+		fmt.Printf("❌ エラー: 無効なログレベル: %v\n", err)
+		os.Exit(1)
+	}
+	log := logger.New(level, false) // JSON形式はデフォルトOFF
+
+	log.Info("VoiceBrief starting", map[string]interface{}{
+		"version":    version,
+		"brief_type": string(briefType),
+		"dry_run":    dryRun,
+	})
+
 	// タイムアウト設定
 	timeout := time.Duration(cfg.Runtime.APITimeoutSeconds) * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -120,11 +135,21 @@ func handleRunCommand() {
 
 	// 1. データ取得
 	fmt.Println("📥 Step 1/4: データ取得中...")
+	log.Debug("Starting data fetch", map[string]interface{}{
+		"brief_type": string(briefType),
+		"timeout":    timeout.String(),
+	})
 	events, err := fetchEvents(ctx, cfg, briefType)
 	if err != nil {
+		log.Error("Failed to fetch events", map[string]interface{}{
+			"error": err.Error(),
+		})
 		fmt.Printf("❌ エラー: データ取得に失敗: %v\n", err)
 		os.Exit(1)
 	}
+	log.Info("Events fetched successfully", map[string]interface{}{
+		"count": len(events),
+	})
 	fmt.Printf("✓ 合計 %d 件のイベントを取得\n\n", len(events))
 
 	// デバッグダンプ（オプション）
@@ -136,11 +161,18 @@ func handleRunCommand() {
 
 	// 2. 要約生成
 	fmt.Println("📝 Step 2/4: ブリーフィング要約生成中...")
+	log.Debug("Generating brief summary")
 	brief, err := generateBrief(cfg, events, briefType)
 	if err != nil {
+		log.Error("Failed to generate brief", map[string]interface{}{
+			"error": err.Error(),
+		})
 		fmt.Printf("❌ エラー: 要約生成に失敗: %v\n", err)
 		os.Exit(1)
 	}
+	log.Info("Brief generated successfully", map[string]interface{}{
+		"event_count": brief.GetEventCount(),
+	})
 	fmt.Printf("✓ 要約生成完了 (対象: %d 件)\n\n", brief.GetEventCount())
 
 	// 3. ファイル出力（Markdown）
@@ -154,6 +186,7 @@ func handleRunCommand() {
 
 	// 4. 音声生成
 	if dryRun {
+		log.Info("Skipping audio generation (dry-run mode)")
 		fmt.Println("🔇 Step 4/4: 音声生成スキップ (--dry-run)")
 		fmt.Printf("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
 		fmt.Printf("📄 Markdown: %s\n", markdownPath)
@@ -161,14 +194,25 @@ func handleRunCommand() {
 	}
 
 	fmt.Println("🎤 Step 4/4: 音声ファイル生成中...")
+	log.Debug("Generating audio file")
 	audioPath, err := generateAudio(ctx, cfg, brief, briefType)
 	if err != nil {
+		log.Error("Failed to generate audio", map[string]interface{}{
+			"error": err.Error(),
+		})
 		fmt.Printf("❌ エラー: 音声生成に失敗: %v\n", err)
 		os.Exit(1)
 	}
+	log.Info("Audio generated successfully", map[string]interface{}{
+		"path": audioPath,
+	})
 	fmt.Printf("✓ 音声を生成: %s\n\n", audioPath)
 
 	// 完了メッセージ
+	log.Info("Brief generation completed", map[string]interface{}{
+		"markdown": markdownPath,
+		"audio":    audioPath,
+	})
 	fmt.Printf("✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
 	fmt.Printf("📄 Markdown: %s\n", markdownPath)
 	fmt.Printf("🔊 Audio: %s\n", audioPath)
