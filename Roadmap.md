@@ -401,21 +401,34 @@ launchctl list | grep voicebrief
 
 **タスク:**
 
-- [ ] `internal/uploader/slack.go`実装
+- [x] `internal/uploader/slack.go`実装
   - 指定チャンネルへ原稿投稿
-  - 音声ファイル添付（可能なら）
+  - 音声ファイル添付機能
 
-- [ ] 設定ファイル拡張
+- [x] `internal/uploader/uploader.go`実装
+  - Uploaderインターフェース定義
+
+- [x] 設定ファイル拡張
+  - `slack.post_enabled`設定追加（デフォルト: false）
   - `slack.post_channel`設定追加
-  - 投稿ON/OFF切り替え
+  - `slack.upload_audio`設定追加
+
+- [x] main.goに統合
+  - Slack投稿処理の追加
+  - エラーハンドリング（Best Effort）
 
 **成果物:**
 
-- [ ] Slackへのブリーフィング投稿機能
+- [x] Slackへのブリーフィング投稿機能
 
 **検証:**
 
 ```bash
+# post_enabled: false の場合は投稿されない
+voicebrief run --daily
+# 投稿がスキップされることを確認
+
+# post_enabled: true, post_channel設定後
 voicebrief run --daily
 # 指定チャンネルにブリーフィングが投稿される
 ```
@@ -423,7 +436,7 @@ voicebrief run --daily
 ### Phase 3 完了条件
 
 - [x] launchdで定期実行設定可能
-- [ ] Slack投稿機能（オプション）動作
+- [x] Slack投稿機能（オプション）動作
 - [x] README手順で自動化設定完了
 
 ---

@@ -15,6 +15,7 @@ import (
 	"github.com/masumomo/voice-brief/internal/model"
 	"github.com/masumomo/voice-brief/internal/summarizer"
 	"github.com/masumomo/voice-brief/internal/tts"
+	"github.com/masumomo/voice-brief/internal/uploader"
 )
 
 const version = "v0.1.0-dev"
@@ -208,14 +209,37 @@ func handleRunCommand() {
 	})
 	fmt.Printf("✓ 音声を生成: %s\n\n", audioPath)
 
+	// 5. Slack投稿（オプション）
+	if cfg.Slack.PostEnabled {
+		fmt.Println("\n📤 Step 5/5: Slackに投稿中...")
+		log.Debug("Uploading to Slack")
+
+		// Briefに音声パスを設定
+		brief.AudioPath = audioPath
+
+		slackUploader := uploader.NewSlackUploader(&cfg.Slack, cfg.Slack.UploadAudio)
+		if err := slackUploader.Upload(ctx, brief); err != nil {
+			log.Warn("Slack投稿に失敗しました（処理は続行）", map[string]interface{}{
+				"error": err.Error(),
+			})
+			fmt.Printf("⚠️  警告: Slack投稿に失敗: %v\n", err)
+		} else {
+			log.Info("Successfully posted to Slack")
+			fmt.Printf("✓ Slackに投稿完了: %s\n", cfg.Slack.PostChannel)
+		}
+	}
+
 	// 完了メッセージ
 	log.Info("Brief generation completed", map[string]interface{}{
 		"markdown": markdownPath,
 		"audio":    audioPath,
 	})
-	fmt.Printf("✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
+	fmt.Printf("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
 	fmt.Printf("📄 Markdown: %s\n", markdownPath)
 	fmt.Printf("🔊 Audio: %s\n", audioPath)
+	if cfg.Slack.PostEnabled {
+		fmt.Printf("📤 Slack: #%s\n", cfg.Slack.PostChannel)
+	}
 }
 
 // fetchEvents はイベントを取得します

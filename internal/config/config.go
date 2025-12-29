@@ -28,11 +28,13 @@ type AppConfig struct {
 
 // SlackConfig はSlack関連設定
 type SlackConfig struct {
-	TokenEnv    string          `yaml:"token_env"`
-	Token       string          `yaml:"-"` // 環境変数から読み込み
-	Channels    []ChannelConfig `yaml:"channels"`
-	Filters     FilterConfig    `yaml:"filters"`
-	PostChannel string          `yaml:"post_channel"`
+	TokenEnv      string          `yaml:"token_env"`
+	Token         string          `yaml:"-"` // 環境変数から読み込み
+	Channels      []ChannelConfig `yaml:"channels"`
+	Filters       FilterConfig    `yaml:"filters"`
+	PostChannel   string          `yaml:"post_channel"`
+	PostEnabled   bool            `yaml:"post_enabled"`
+	UploadAudio   bool            `yaml:"upload_audio"`
 }
 
 // ChannelConfig はSlackチャンネル設定
