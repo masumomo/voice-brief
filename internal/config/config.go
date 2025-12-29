@@ -83,13 +83,14 @@ type BriefConfig struct {
 
 // SummarizerConfig は要約エンジン設定
 type SummarizerConfig struct {
-	Provider    string `yaml:"provider"` // "rule" or "openai"
-	OpenAIModel string `yaml:"openai_model"`
+	Provider    string `yaml:"provider"` // "rule" or "gemini"
+	GeminiModel string `yaml:"gemini_model"`
+	GeminiAPIKey string `yaml:"gemini_api_key_env"` // 環境変数名
 }
 
 // TTSConfig は音声合成設定
 type TTSConfig struct {
-	Provider string  `yaml:"provider"` // "say" or "openai_tts"
+	Provider string  `yaml:"provider"` // "say" or "google_tts"
 	Voice    string  `yaml:"voice"`
 	Rate     float64 `yaml:"rate"`
 	Format   string  `yaml:"format"` // "aiff", "m4a", "mp3"

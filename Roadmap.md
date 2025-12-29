@@ -471,24 +471,39 @@ voicebrief run --daily
 
 ---
 
-## Phase 5: OpenAI統合（v1.2 - 1週間）
+## Phase 5: Gemini統合（v1.2 - 1週間）
 
-### Phase 5.1: OpenAI Summarizer（3日）
+### Phase 5.1: Gemini Summarizer（3日）
 
 **タスク:**
 
-- [ ] `internal/summarizer/openai.go`実装
-  - GPT-4によるブリーフィング生成
+- [ ] `internal/summarizer/gemini.go`実装
+  - Gemini 2.0 Flash（無料枠）によるブリーフィング生成
   - プロンプトエンジニアリング
-  - トークン数制御
+  - コンテキスト長制御
+  - エラーハンドリング・リトライ
 
-### Phase 5.2: OpenAI TTS（2日）
+**設計方針:**
+- Gemini API無料枠を活用（毎分15リクエスト、毎日1500リクエスト）
+- `google.generativeai` Go SDKを使用
+- Rule-based要約との切り替え可能な設計
+
+**成果物:**
+- [ ] Gemini要約機能
+- [ ] 設定ファイル拡張（gemini_api_key, gemini_model等）
+
+### Phase 5.2: Gemini TTS（オプション・2日）
 
 **タスク:**
 
-- [ ] `internal/tts/openai_tts.go`実装
-  - OpenAI TTS API連携
-  - 音質設定（alloy, echo等）
+- [ ] Google Cloud TTS API連携検討
+  - WaveNet音声によるTTS
+  - 日本語音声品質向上
+  - 料金確認・無料枠活用
+
+**代替案:**
+- macOS sayをデフォルト継続
+- Gemini TTSは将来的な拡張として検討
 
 ### Phase 5.3: iPhoneショートカット連携（2日）
 
@@ -500,23 +515,122 @@ voicebrief run --daily
 
 ---
 
-## Phase 6: マルチプラットフォーム対応（v2.0 - 2週間）
+## Phase 6: Windows対応（v2.0 - 3日）
 
-### Phase 6.1: Linux/Windows対応（1週間）
+### 目標
 
-**タスク:**
+Windows環境での動作対応
+
+### タスク:
 
 - [ ] TTS抽象化（OS判定）
-- [ ] Windows SAPI対応
-- [ ] Linux espeak対応
+  - runtime.GOOS による分岐
+  - TTSインターフェースの活用
 
-### Phase 6.2: Web UI（1週間）
+- [ ] Windows SAPI対応
+  - `internal/tts/sapi.go`実装
+  - PowerShellまたはCOM経由でSAPI呼び出し
+  - 音声ファイル生成（WAV/MP3）
+
+- [ ] ビルド・実行確認
+  - Windows環境でのビルドテスト
+  - launchd代替（Windowsタスクスケジューラ）検討
+
+**成果物:**
+- [ ] Windows版TTS実装
+- [ ] クロスプラットフォームビルド対応
+
+**検証:**
+
+```bash
+# Windows環境で
+go build -o voicebrief.exe cmd/voicebrief/main.go
+.\voicebrief.exe run --daily
+```
+
+---
+
+## Phase 7: OpenAI統合（v2.1 - 1週間）
+
+### 目標
+
+OpenAI APIによる高品質な要約とTTS
+
+### Phase 7.1: OpenAI Summarizer（3日）
 
 **タスク:**
 
-- [ ] 簡易Web UI（Go標準net/http）
-- [ ] ブリーフィング一覧表示
-- [ ] 音声再生機能
+- [ ] `internal/summarizer/openai.go`実装
+  - GPT-4による要約生成
+  - プロンプトエンジニアリング
+  - トークン数制御
+  - エラーハンドリング・リトライ
+
+- [ ] 設定ファイル拡張
+  - `openai_api_key_env`設定追加
+  - `openai_model`設定追加（gpt-4, gpt-3.5-turbo等）
+
+**成果物:**
+- [ ] OpenAI要約機能
+- [ ] Gemini/Rule-basedとの切り替え機能
+
+### Phase 7.2: OpenAI TTS（2日）
+
+**タスク:**
+
+- [ ] `internal/tts/openai_tts.go`実装
+  - OpenAI TTS API連携
+  - 音声選択（alloy, echo, fable, onyx, nova, shimmer）
+  - 速度調整
+
+**成果物:**
+- [ ] OpenAI TTS機能
+
+### Phase 7.3: コスト管理（1日）
+
+**タスク:**
+
+- [ ] トークン使用量ログ出力
+- [ ] 月次コスト見積もり機能
+- [ ] README にコスト情報追加
+
+---
+
+## Phase 8: GitHub統合（v2.2 - 3日）
+
+### 目標
+
+GitHubの活動もブリーフィングに含める
+
+### タスク:
+
+- [ ] `internal/fetcher/github.go`実装
+  - GitHub API連携
+  - リポジトリのコミット取得
+  - Issue/PR更新取得
+  - レビューコメント取得
+
+- [ ] 設定ファイル拡張
+  - `github.enabled`設定
+  - `github.repositories`リスト
+  - `github.username`フィルタ
+
+- [ ] Event構造体への変換
+  - コミット → Event
+  - Issue/PR → Event
+  - 重要度計算（ラベル、コメント数等）
+
+**成果物:**
+- [ ] GitHub連携機能
+- [ ] 並列取得対応（Slack/Notion/GitHub）
+
+**検証:**
+
+```bash
+# github.enabled: true 設定後
+voicebrief run --daily
+# GitHubの更新も含まれることを確認
+```
 
 ---
 
@@ -527,11 +641,13 @@ voicebrief run --daily
 | **Phase 0** | 1日 | プロジェクトセットアップ |
 | **Phase 1 (MVP)** | 1週間 | Daily Briefing生成機能 |
 | **Phase 2** | 3日 | Weekly対応・品質向上 |
-| **Phase 3** | 2日 | launchd自動化 |
-| **v1.0 リリース** | - | **完全ローカル動作版** |
+| **Phase 3** | 2日 | launchd自動化・Slack投稿 |
+| **v1.0 リリース** | - | **完全ローカル動作版** ✅完了 |
 | **Phase 4 (v1.1)** | 1週間 | スレッド・プロパティ強化 |
-| **Phase 5 (v1.2)** | 1週間 | OpenAI統合 |
-| **Phase 6 (v2.0)** | 2週間 | マルチプラットフォーム・Web UI |
+| **Phase 5 (v1.2)** | 1週間 | Gemini統合 |
+| **Phase 6 (v2.0)** | 3日 | Windows対応 |
+| **Phase 7 (v2.1)** | 1週間 | OpenAI統合 |
+| **Phase 8 (v2.2)** | 3日 | GitHub統合 |
 
 ---
 
@@ -553,15 +669,18 @@ voicebrief run --daily
 
 ### Could Have（v1.2以降検討）
 
-- OpenAI要約・TTS
+- Gemini要約（無料枠活用）
+- Google Cloud TTS（音声品質向上）
+- OpenAI要約・TTS（高品質）
+- GitHub統合
 - iPhoneショートカット連携
-- Slack投稿機能
 
-### Won't Have（v2.0以降）
+### Won't Have（スコープアウト）
 
 - Web UI
-- マルチプラットフォーム対応
+- Linux対応
 - リアルタイム通知
+- モバイルアプリ
 
 ---
 
@@ -572,8 +691,10 @@ voicebrief run --daily
 | Slack API制限 | 高 | Rate Limit制御、Retry実装 |
 | Notion API変更 | 中 | API Version固定、定期確認 |
 | ffmpeg非インストール | 低 | AIFF出力をフォールバック |
-| OpenAI費用 | 中 | 無料プロバイダ（say）をデフォルト |
-| macOS依存 | 高 | v2.0でマルチプラットフォーム対応 |
+| Gemini API制限 | 中 | 無料枠内での利用、Rate Limit制御 |
+| OpenAI費用 | 中 | 使用量モニタリング、コスト見積もり |
+| macOS/Windows依存 | 中 | Windows対応でカバー（Linuxはスコープアウト） |
+| GitHub API制限 | 低 | Rate Limit制御、認証トークン管理 |
 
 ---
 

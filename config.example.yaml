@@ -28,7 +28,9 @@ slack:
       - "ありがとうございます"
 
   # Slack投稿設定（オプション）
-  # post_channel: "C_PERSONAL"  # ブリーフィング投稿先チャンネルID
+  post_enabled: false            # true にすると自動投稿が有効になります
+  post_channel: ""               # ブリーフィング投稿先チャンネルID（例: C01234567）
+  upload_audio: false            # true にすると音声ファイルも添付します
 
 notion:
   # 環境変数名を指定
@@ -58,12 +60,13 @@ brief:
 
 # 要約エンジン設定
 summarizer:
-  provider: "rule"  # "rule" | "openai"
-  # openai_model: "gpt-4"  # providerがopenaiの場合のみ
+  provider: "rule"  # "rule" | "gemini"
+  # gemini_model: "gemini-2.0-flash-exp"  # providerがgeminiの場合のみ
+  # gemini_api_key_env: "GEMINI_API_KEY"  # 環境変数名
 
 # 音声合成設定
 tts:
-  provider: "say"  # "say" | "openai_tts"
+  provider: "say"  # "say" | "google_tts"
   voice: "Kyoko"   # say使用時の音声（Kyoko, Otoya等）
   rate: 1.1        # 読み上げ速度（倍速）
   format: "m4a"    # 出力形式: aiff, m4a, mp3
