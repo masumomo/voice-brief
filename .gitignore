@@ -1,0 +1,45 @@
+# Binaries (exclude binary in root, but not cmd/voicebrief/ directory)
+/voicebrief
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Dependency directories
+vendor/
+dist/
+
+# Go workspace file
+go.work
+
+# Output files
+out/
+*.aiff
+*.m4a
+*.mp3
+
+# Environment and config files
+.env
+config.yaml
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/

@@ -1,0 +1,74 @@
+# VoiceBrief Configuration Example
+# コピーして config.yaml として使用してください
+# トークン等の機密情報は .env ファイルまたは環境変数で管理してください
+
+app:
+  output_dir: "./out"
+  log_level: "info"  # debug | info | warn | error
+
+slack:
+  # 環境変数名を指定（実際のトークンは .env に記載）
+  token_env: "VOICE_BRIEF_SLACK_TOKEN"
+
+  # 監視対象チャンネル
+  channels:
+    - id: "C01234567"
+      name: "general"
+    - id: "C09876543"
+      name: "dev-backend"
+
+  # フィルタ設定
+  filters:
+    exclude_bots: true
+    exclude_short_messages: true
+    min_length: 10
+    exclude_keywords:
+      - "了解です"
+      - "承知しました"
+      - "ありがとうございます"
+
+  # Slack投稿設定（オプション）
+  # post_channel: "C_PERSONAL"  # ブリーフィング投稿先チャンネルID
+
+notion:
+  # 環境変数名を指定
+  token_env: "VOICE_BRIEF_NOTION_TOKEN"
+
+  # 監視対象データベース
+  databases:
+    - id: "db-uuid-xxxx"
+      name: "Design Docs"
+      properties: ["Status", "Tag", "Project"]
+    - id: "db-uuid-yyyy"
+      name: "Task Board"
+      properties: ["Status", "Assignee", "Priority"]
+
+# GitHub連携（オプション）
+github:
+  enabled: false
+  token_env: "VOICE_BRIEF_GITHUB_TOKEN"
+  username: "your-username"
+
+# ブリーフィング設定
+brief:
+  daily_window_hours: 24
+  weekly_days: 7
+  max_items_daily: 8
+  max_items_weekly: 25
+
+# 要約エンジン設定
+summarizer:
+  provider: "rule"  # "rule" | "openai"
+  # openai_model: "gpt-4"  # providerがopenaiの場合のみ
+
+# 音声合成設定
+tts:
+  provider: "say"  # "say" | "openai_tts"
+  voice: "Kyoko"   # say使用時の音声（Kyoko, Otoya等）
+  rate: 1.1        # 読み上げ速度（倍速）
+  format: "m4a"    # 出力形式: aiff, m4a, mp3
+
+# 実行時設定
+runtime:
+  max_concurrency: 5
+  api_timeout_seconds: 30
