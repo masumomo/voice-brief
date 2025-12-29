@@ -71,10 +71,11 @@ type DatabaseConfig struct {
 
 // GitHubConfig はGitHub関連設定
 type GitHubConfig struct {
-	Enabled  bool   `yaml:"enabled"`
-	TokenEnv string `yaml:"token_env"`
-	Token    string `yaml:"-"` // 環境変数から読み込み
-	Username string `yaml:"username"`
+	Enabled      bool     `yaml:"enabled"`
+	TokenEnv     string   `yaml:"token_env"`
+	Token        string   `yaml:"-"` // 環境変数から読み込み
+	Username     string   `yaml:"username"`      // フィルタ用ユーザー名
+	Repositories []string `yaml:"repositories"`  // 監視対象リポジトリ（owner/repo形式）
 }
 
 // BriefConfig はブリーフィング設定

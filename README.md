@@ -435,8 +435,8 @@ cat out/daily/$(date +%Y-%m-%d).md
 - ✅ **v1.1**: Slackスレッド対応、Notionプロパティフィルタ強化
 - ✅ **v1.2**: Gemini AI要約統合、Google Cloud TTS（無料枠）
 - ✅ **v2.0**: Windows対応（SAPI TTS）
-- ✅ **v2.1** (Current): OpenAI統合（GPT-4o Summarizer + OpenAI TTS）
-- 📋 **v2.2**: GitHub統合
+- ✅ **v2.1**: OpenAI統合（GPT-4o Summarizer + OpenAI TTS）
+- ✅ **v2.2** (Current): GitHub統合（3ソース並列取得）
 
 ## ライセンス
 

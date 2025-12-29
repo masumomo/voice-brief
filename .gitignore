@@ -43,3 +43,5 @@ config.yaml
 # Temporary files
 tmp/
 temp/
+
+planed_spec*.md

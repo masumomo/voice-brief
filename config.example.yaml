@@ -49,7 +49,10 @@ notion:
 github:
   enabled: false
   token_env: "VOICE_BRIEF_GITHUB_TOKEN"
-  username: "your-username"
+  username: "your-username"  # フィルタ用（自分のアクティビティのみ取得）
+  repositories:  # 監視対象リポジトリ（owner/repo形式）
+    - "owner/repository-name"
+    # - "your-org/another-repo"
 
 # ブリーフィング設定
 brief:

@@ -18,18 +18,26 @@ type Fetcher interface {
 
 // MultiFetcher は複数のFetcherを並列実行します
 type MultiFetcher struct {
-	config       *config.Config
-	slackFetcher *SlackFetcher
+	config        *config.Config
+	slackFetcher  *SlackFetcher
 	notionFetcher *NotionFetcher
+	githubFetcher *GitHubFetcher
 }
 
 // NewMultiFetcher は新しいMultiFetcherを作成します
 func NewMultiFetcher(cfg *config.Config) *MultiFetcher {
-	return &MultiFetcher{
+	mf := &MultiFetcher{
 		config:        cfg,
 		slackFetcher:  NewSlackFetcher(&cfg.Slack),
 		notionFetcher: NewNotionFetcher(&cfg.Notion),
 	}
+
+	// GitHub Fetcherは有効な場合のみ初期化
+	if cfg.GitHub.Enabled {
+		mf.githubFetcher = NewGitHubFetcher(&cfg.GitHub)
+	}
+
+	return mf
 }
 
 // Fetch はすべてのソースから並列でイベントを取得します
@@ -41,7 +49,12 @@ func (f *MultiFetcher) Fetch(ctx context.Context, since time.Time) (model.Events
 		err    error
 	}
 
-	results := make(chan fetchResult, 2) // Slack + Notion
+	// チャンネルサイズを動的に設定
+	numSources := 2 // Slack + Notion
+	if f.config.GitHub.Enabled {
+		numSources++
+	}
+	results := make(chan fetchResult, numSources)
 	eg, ctx := errgroup.WithContext(ctx)
 
 	// Slack取得（並列）
@@ -68,18 +81,19 @@ func (f *MultiFetcher) Fetch(ctx context.Context, since time.Time) (model.Events
 		return nil
 	})
 
-	// TODO: GitHub取得（Phase 4+で実装）
-	// if f.config.GitHub.Enabled {
-	//     eg.Go(func() error {
-	//         events, err := f.githubFetcher.Fetch(ctx, since)
-	//         results <- fetchResult{
-	//             source: "GitHub",
-	//             events: events,
-	//             err:    err,
-	//         }
-	//         return nil
-	//     })
-	// }
+	// GitHub取得（並列）
+	if f.config.GitHub.Enabled && f.githubFetcher != nil {
+		eg.Go(func() error {
+			events, err := f.githubFetcher.Fetch(ctx, since)
+			results <- fetchResult{
+				source: "GitHub",
+				events: events,
+				err:    err,
+			}
+			// Best Effort: エラーが発生しても nil を返して他の取得を継続
+			return nil
+		})
+	}
 
 	// 並列取得の完了を待つ
 	go func() {
@@ -141,6 +155,17 @@ func (f *MultiFetcher) TestAllConnections(ctx context.Context) error {
 		fmt.Println("✓ Notion API接続成功")
 		return nil
 	})
+
+	// GitHub接続テスト（有効な場合のみ）
+	if f.config.GitHub.Enabled && f.githubFetcher != nil {
+		eg.Go(func() error {
+			if err := f.githubFetcher.TestConnection(ctx); err != nil {
+				return fmt.Errorf("GitHub: %w", err)
+			}
+			fmt.Println("✓ GitHub API接続成功")
+			return nil
+		})
+	}
 
 	// すべての接続テストが成功するまで待つ
 	if err := eg.Wait(); err != nil {

@@ -747,7 +747,7 @@ tts:
 
 ---
 
-## Phase 8: GitHub統合（v2.2 - 3日）
+## Phase 8: GitHub統合（v2.2 - 3日） ✅
 
 ### 目標
 
@@ -755,33 +755,69 @@ GitHubの活動もブリーフィングに含める
 
 ### タスク
 
-- [ ] `internal/fetcher/github.go`実装
-  - GitHub API連携
+- [x] `internal/fetcher/github.go`実装（297行）
+  - GitHub API連携（github.com/google/go-github/v57）
   - リポジトリのコミット取得
   - Issue/PR更新取得
-  - レビューコメント取得
+  - ユーザー名フィルタ対応
 
-- [ ] 設定ファイル拡張
+- [x] 設定ファイル拡張
   - `github.enabled`設定
-  - `github.repositories`リスト
+  - `github.repositories`リスト（owner/repo形式）
   - `github.username`フィルタ
 
-- [ ] Event構造体への変換
-  - コミット → Event
-  - Issue/PR → Event
-  - 重要度計算（ラベル、コメント数等）
+- [x] Event構造体への変換
+  - コミット → Event（SHA, メッセージ、diff stats）
+  - Issue/PR → Event（番号、ラベル、コメント数）
+  - カテゴリ自動判定（Conventional Commits対応）
 
 **成果物:**
 
-- [ ] GitHub連携機能
-- [ ] 並列取得対応（Slack/Notion/GitHub）
+- [x] GitHub Fetcher実装
+- [x] 並列取得対応（Slack/Notion/GitHub 3ソース）
+- [x] MultiFetcher統合
+
+**実装詳細:**
+
+```go
+// GitHub Fetcher初期化
+githubFetcher := NewGitHubFetcher(&cfg.GitHub)
+
+// コミット取得
+commits, err := githubFetcher.fetchCommits(ctx, "owner/repo", since)
+
+// Issue/PR取得
+issues, err := githubFetcher.fetchIssuesAndPRs(ctx, "owner/repo", since)
+
+// カテゴリ判定（Conventional Commits）
+// fix/hotfix → Incident
+// feat/feature → Dev
+// chore/ci → Ops
+```
+
+**設定例:**
+
+```yaml
+github:
+  enabled: true
+  token_env: "VOICE_BRIEF_GITHUB_TOKEN"
+  username: "your-username"  # 自分のアクティビティのみ
+  repositories:
+    - "owner/repository-name"
+    - "your-org/another-repo"
+```
 
 **検証:**
 
 ```bash
-# github.enabled: true 設定後
+# GitHub統合を有効化
+export VOICE_BRIEF_GITHUB_TOKEN="ghp_your-token"
+
+# 設定ファイルでgithub.enabled: true
+
+# ブリーフィング生成
 voicebrief run --daily
-# GitHubの更新も含まれることを確認
+# ✓ GitHub から X 件のイベントを取得
 ```
 
 ---
@@ -799,7 +835,7 @@ voicebrief run --daily
 | **Phase 5 (v1.2)** | 5日 | Gemini統合（Summarizer + Google TTS） | ✅ |
 | **Phase 6 (v2.0)** | 3日 | Windows対応（SAPI TTS） | ✅ |
 | **Phase 7 (v2.1)** | 1週間 | OpenAI統合（Summarizer + TTS） | ✅ |
-| **Phase 8 (v2.2)** | 3日 | GitHub統合 |  |
+| **Phase 8 (v2.2)** | 3日 | GitHub統合（3ソース並列取得） | ✅ |
 
 ---
 
