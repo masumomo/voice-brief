@@ -471,47 +471,56 @@ voicebrief run --daily
 
 ---
 
-## Phase 5: Gemini統合（v1.2 - 1週間）
+## Phase 5: Gemini統合（v1.2 - 1週間） ✅ 完了
 
-### Phase 5.1: Gemini Summarizer（3日）
+### Phase 5.1: Gemini Summarizer（3日） ✅
 
 **タスク:**
 
-- [ ] `internal/summarizer/gemini.go`実装
+- [x] `internal/summarizer/gemini.go`実装
   - Gemini 2.0 Flash（無料枠）によるブリーフィング生成
   - プロンプトエンジニアリング
   - コンテキスト長制御
   - エラーハンドリング・リトライ
 
 **設計方針:**
+
 - Gemini API無料枠を活用（毎分15リクエスト、毎日1500リクエスト）
 - `google.generativeai` Go SDKを使用
 - Rule-based要約との切り替え可能な設計
 
 **成果物:**
-- [ ] Gemini要約機能
-- [ ] 設定ファイル拡張（gemini_api_key, gemini_model等）
 
-### Phase 5.2: Gemini TTS（オプション・2日）
+- [x] Gemini要約機能（internal/summarizer/gemini.go - 269行）
+- [x] 設定ファイル拡張（gemini_api_key_env, gemini_model）
+- [x] テスト作成（カバレッジ69.6%）
+- [x] ドキュメント更新
+
+### Phase 5.2: Google Cloud TTS（オプション・2日） ✅
 
 **タスク:**
 
-- [ ] Google Cloud TTS API連携検討
+- [x] Google Cloud TTS API連携実装
   - WaveNet音声によるTTS
-  - 日本語音声品質向上
-  - 料金確認・無料枠活用
+  - 日本語音声品質向上（ja-JP-Neural2-B等）
+  - 無料枠活用（毎月100万文字まで）
 
-**代替案:**
-- macOS sayをデフォルト継続
-- Gemini TTSは将来的な拡張として検討
+**成果物:**
 
-### Phase 5.3: iPhoneショートカット連携（2日）
+- [x] Google TTS実装（internal/tts/google_tts.go - 173行）
+- [x] macOS say互換の音声名マッピング
+- [x] MP3/OGG/WAV形式対応
+- [x] 認証情報のJSON環境変数対応
+- [x] テスト作成
+- [x] ドキュメント更新
 
-**タスク:**
+### Phase 5.3: iPhoneショートカット連携 ❌ スコープアウト
 
-- [ ] Webhook受信サーバー（簡易HTTP）
-- [ ] Notionへタスク登録機能
-- [ ] ショートカットサンプル作成
+**理由:**
+
+- コアバリュー「音声ブリーフィング」から外れる
+- 優先度が低い（Phase 6, 7の方が重要）
+- 将来的な拡張として検討
 
 ---
 
@@ -521,7 +530,7 @@ voicebrief run --daily
 
 Windows環境での動作対応
 
-### タスク:
+### タスク
 
 - [ ] TTS抽象化（OS判定）
   - runtime.GOOS による分岐
@@ -537,6 +546,7 @@ Windows環境での動作対応
   - launchd代替（Windowsタスクスケジューラ）検討
 
 **成果物:**
+
 - [ ] Windows版TTS実装
 - [ ] クロスプラットフォームビルド対応
 
@@ -571,6 +581,7 @@ OpenAI APIによる高品質な要約とTTS
   - `openai_model`設定追加（gpt-4, gpt-3.5-turbo等）
 
 **成果物:**
+
 - [ ] OpenAI要約機能
 - [ ] Gemini/Rule-basedとの切り替え機能
 
@@ -584,6 +595,7 @@ OpenAI APIによる高品質な要約とTTS
   - 速度調整
 
 **成果物:**
+
 - [ ] OpenAI TTS機能
 
 ### Phase 7.3: コスト管理（1日）
@@ -602,7 +614,7 @@ OpenAI APIによる高品質な要約とTTS
 
 GitHubの活動もブリーフィングに含める
 
-### タスク:
+### タスク
 
 - [ ] `internal/fetcher/github.go`実装
   - GitHub API連携
@@ -621,6 +633,7 @@ GitHubの活動もブリーフィングに含める
   - 重要度計算（ラベル、コメント数等）
 
 **成果物:**
+
 - [ ] GitHub連携機能
 - [ ] 並列取得対応（Slack/Notion/GitHub）
 
@@ -638,16 +651,16 @@ voicebrief run --daily
 
 | マイルストーン | 期間 | 主な成果物 |
 | --- | --- | --- |
-| **Phase 0** | 1日 | プロジェクトセットアップ |
-| **Phase 1 (MVP)** | 1週間 | Daily Briefing生成機能 |
-| **Phase 2** | 3日 | Weekly対応・品質向上 |
-| **Phase 3** | 2日 | launchd自動化・Slack投稿 |
-| **v1.0 リリース** | - | **完全ローカル動作版** ✅完了 |
-| **Phase 4 (v1.1)** | 1週間 | スレッド・プロパティ強化 |
-| **Phase 5 (v1.2)** | 1週間 | Gemini統合 |
-| **Phase 6 (v2.0)** | 3日 | Windows対応 |
-| **Phase 7 (v2.1)** | 1週間 | OpenAI統合 |
-| **Phase 8 (v2.2)** | 3日 | GitHub統合 |
+| **Phase 0** | 1日 | プロジェクトセットアップ | ✅ |
+| **Phase 1 (MVP)** | 1週間 | Daily Briefing生成機能 | ✅ |
+| **Phase 2** | 3日 | Weekly対応・品質向上 | ✅ |
+| **Phase 3** | 2日 | launchd自動化・Slack投稿 | ✅ |
+| **v1.0 リリース** | - | **完全ローカル動作版** | ✅ |
+| **Phase 4 (v1.1)** | 1週間 | スレッド・プロパティ強化 |  |
+| **Phase 5 (v1.2)** | 5日 | Gemini統合（Summarizer + Google TTS） | ✅ |
+| **Phase 6 (v2.0)** | 3日 | Windows対応 |  |
+| **Phase 7 (v2.1)** | 1週間 | OpenAI統合 |  |
+| **Phase 8 (v2.2)** | 3日 | GitHub統合 |  |
 
 ---
 
@@ -669,14 +682,14 @@ voicebrief run --daily
 
 ### Could Have（v1.2以降検討）
 
-- Gemini要約（無料枠活用）
-- Google Cloud TTS（音声品質向上）
-- OpenAI要約・TTS（高品質）
-- GitHub統合
-- iPhoneショートカット連携
+- ✅ Gemini要約（無料枠活用）- Phase 5.1完了
+- ✅ Google Cloud TTS（音声品質向上）- Phase 5.2完了
+- OpenAI要約・TTS（高品質）- Phase 7予定
+- GitHub統合 - Phase 8予定
 
 ### Won't Have（スコープアウト）
 
+- iPhoneショートカット連携（コアバリューから外れる）
 - Web UI
 - Linux対応
 - リアルタイム通知
