@@ -459,6 +459,7 @@ voicebrief run --daily
   - 2件以上の返信: +5ポイント
 
 **成果物:**
+
 - [x] スレッド対応のSlack取得（internal/fetcher/slack.go）
 - [x] 重要度計算の改善（internal/filter/importance.go）
 
@@ -480,12 +481,14 @@ voicebrief run --daily
   - `mapToCategory`関数でカテゴリマッピング
 
 **成果物:**
+
 - [x] Notion本文取得機能（internal/fetcher/notion.go）
 - [x] プロパティフィルタ機能
 - [x] カテゴリ・プロジェクト分類強化
 - [x] DatabaseConfig拡張（internal/config/config.go）
 
 **設定例:**
+
 ```yaml
 notion:
   databases:
