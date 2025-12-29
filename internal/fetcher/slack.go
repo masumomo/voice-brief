@@ -98,6 +98,20 @@ func (f *SlackFetcher) fetchChannel(ctx context.Context, channel config.ChannelC
 		}
 
 		event := f.messageToEvent(&msg, channel)
+
+		// スレッドがある場合は返信を取得
+		if msg.ThreadTimestamp != "" && msg.ThreadTimestamp != msg.Timestamp {
+			// このメッセージはスレッドの返信なので、親メッセージとして扱う
+			replyCount, err := f.fetchThreadReplies(ctx, channel.ID, msg.ThreadTimestamp, event)
+			if err != nil {
+				// エラーでもスレッド取得失敗として継続
+				fmt.Printf("⚠️  警告: スレッド返信の取得に失敗: %v\n", err)
+			} else if replyCount > 0 {
+				// スレッド数をRefsに記録
+				event.Refs["thread_reply_count"] = strconv.Itoa(replyCount)
+			}
+		}
+
 		events = append(events, event)
 	}
 
@@ -217,4 +231,52 @@ func containsAny(text string, keywords []string) bool {
 		}
 	}
 	return false
+}
+
+// fetchThreadReplies はスレッドの返信を取得して、親イベントに情報を追加します
+func (f *SlackFetcher) fetchThreadReplies(ctx context.Context, channelID, threadTS string, parentEvent *model.Event) (int, error) {
+	params := &slack.GetConversationRepliesParameters{
+		ChannelID: channelID,
+		Timestamp: threadTS,
+		Limit:     100, // スレッド返信の最大取得数
+	}
+
+	replies, _, _, err := f.client.GetConversationRepliesContext(ctx, params)
+	if err != nil {
+		return 0, fmt.Errorf("スレッド返信の取得に失敗: %w", err)
+	}
+
+	// 最初のメッセージは親メッセージ自身なので除外
+	if len(replies) <= 1 {
+		return 0, nil
+	}
+
+	replyCount := len(replies) - 1
+
+	// スレッドの返信をBodyに追加（簡易版：最初の3件のみ）
+	threadSummary := make([]string, 0, 3)
+	for i, reply := range replies {
+		if i == 0 {
+			continue // 親メッセージをスキップ
+		}
+		if i > 3 {
+			break // 最初の3件のみ
+		}
+
+		// Bot投稿を除外
+		if f.config.Filters.ExcludeBots && reply.BotID != "" {
+			continue
+		}
+
+		threadSummary = append(threadSummary, fmt.Sprintf("  💬 %s", truncate(reply.Text, 100)))
+	}
+
+	if len(threadSummary) > 0 {
+		parentEvent.Body = parentEvent.Body + "\n\nスレッド返信:\n" + strings.Join(threadSummary, "\n")
+		if replyCount > 3 {
+			parentEvent.Body += fmt.Sprintf("\n  ... 他%d件の返信", replyCount-3)
+		}
+	}
+
+	return replyCount, nil
 }

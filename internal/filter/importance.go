@@ -78,10 +78,21 @@ func (c *RuleBasedCalculator) Calculate(event *model.Event) int {
 		importance += 5
 	}
 
-	// スレッド数が多い場合は重要度アップ（Refsに格納されている想定）
+	// スレッド返信数が多い場合は重要度アップ（Refsに格納されている想定）
+	if threadReplyCount, ok := event.Refs["thread_reply_count"]; ok {
+		if len(threadReplyCount) > 0 {
+			// 簡易的に文字列の数値をチェック
+			if threadReplyCount >= "5" {
+				importance += 15 // 5件以上の返信がある場合は議論が活発
+			} else if threadReplyCount >= "2" {
+				importance += 5 // 2件以上の返信がある場合は注目度あり
+			}
+		}
+	}
+
+	// 古いthread_countもサポート（後方互換性）
 	if threadCount, ok := event.Refs["thread_count"]; ok {
 		if len(threadCount) > 0 {
-			// 簡易的に文字列の数値をチェック
 			if threadCount >= "5" {
 				importance += 10
 			}

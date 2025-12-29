@@ -443,13 +443,24 @@ voicebrief run --daily
 
 ## Phase 4: 機能拡張（v1.1 - 1週間）
 
-### Phase 4.1: Slackスレッド対応（2日）
+### Phase 4.1: Slackスレッド対応（2日） ✅
 
 **タスク:**
 
-- [ ] スレッド返信取得
-- [ ] 親メッセージとの紐付け
-- [ ] Importance計算にスレッド数を反映
+- [x] スレッド返信取得
+  - `fetchThreadReplies`関数実装
+  - 最大100件のスレッド返信を取得
+  - 最初の3件の返信をBodyに追加
+- [x] 親メッセージとの紐付け
+  - `thread_ts`によるスレッド判定
+  - 返信数を`Refs["thread_reply_count"]`に記録
+- [x] Importance計算にスレッド数を反映
+  - 5件以上の返信: +15ポイント
+  - 2件以上の返信: +5ポイント
+
+**成果物:**
+- [x] スレッド対応のSlack取得（internal/fetcher/slack.go）
+- [x] 重要度計算の改善（internal/filter/importance.go）
 
 ### Phase 4.2: Notionプロパティフィルタ強化（2日）
 
