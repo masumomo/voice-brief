@@ -15,8 +15,8 @@ type TTS interface {
 
 // Config はTTS設定
 type Config struct {
-	Provider string  // "say" | "openai_tts"
-	Voice    string  // 音声名（sayの場合: Kyoko, Otoya等）
+	Provider string  // "say" (macOS) | "sapi" (Windows) | "google_tts" | "openai_tts"
+	Voice    string  // 音声名（say/sapi: Kyoko, Otoya等）
 	Rate     float64 // 読み上げ速度
-	Format   string  // 出力形式: "aiff", "m4a", "mp3"
+	Format   string  // 出力形式: "aiff", "m4a", "mp3", "wav"
 }

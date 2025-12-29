@@ -11,14 +11,15 @@ VoiceBriefは、SlackとNotionの更新情報を自動的に収集し、音声�
 
 - **完全ローカル動作**: 生データをディスクに保存せず、プライバシーを保護
 - **AI要約対応**: Gemini 2.0 Flash（無料枠）による自然な要約生成
-- **高品質音声合成**: macOS標準TTS or Google Cloud TTS（WaveNet音声）
+- **高品質音声合成**: macOS/Windows標準TTS or Google Cloud TTS（WaveNet音声）
 - **並列高速取得**: SlackとNotionから同時並行でデータを取得
 - **重要度フィルタリング**: ノイズを除外し、重要な情報のみを抽出
 - **定期自動実行**: launchdで毎朝自動的にブリーフィング生成
+- **クロスプラットフォーム**: macOS/Windows両対応
 
 ## 必要環境
 
-- macOS 12.0以降
+- macOS 12.0以降 または Windows 10/11
 - Go 1.21以降
 - ffmpeg（オプション - 音声形式変換用）
 
@@ -153,8 +154,8 @@ summarizer:
 
 # 音声合成設定（オプション）
 tts:
-  provider: "say"  # "say" (macOS標準) | "google_tts" (Google Cloud TTS)
-  voice: "Kyoko"   # say: Kyoko, Otoya等 / google_tts: ja-JP-Neural2-B等
+  provider: "say"  # "say" (macOS) | "sapi" (Windows) | "google_tts" (Google Cloud TTS)
+  voice: "Kyoko"   # say/sapi: Kyoko, Otoya等 / google_tts: ja-JP-Neural2-B等
   rate: 1.1        # 読み上げ速度（倍速）
   # google_credentials_json_env: "GOOGLE_APPLICATION_CREDENTIALS_JSON"  # Google TTS使用時
 ```
@@ -403,12 +404,12 @@ cat out/daily/$(date +%Y-%m-%d).md
 
 詳細は[Roadmap.md](./Roadmap.md)を参照してください。
 
-- **v1.0** (Current): Daily/Weekly実行、Rule-based要約、macOS say TTS
-- **v1.1**: Slackスレッド対応、Notionプロパティフィルタ強化
-- **v1.2**: Gemini AI要約統合、iPhoneショートカット連携
-- **v2.0**: Windows対応
-- **v2.1**: OpenAI統合（要約・TTS）
-- **v2.2**: GitHub統合
+- ✅ **v1.0**: Daily/Weekly実行、Rule-based要約、macOS say TTS
+- ✅ **v1.1**: Slackスレッド対応、Notionプロパティフィルタ強化
+- ✅ **v1.2**: Gemini AI要約統合、Google Cloud TTS
+- ✅ **v2.0** (Current): Windows対応（SAPI TTS）
+- 🚧 **v2.1**: OpenAI統合（要約・TTS）
+- 📋 **v2.2**: GitHub統合
 
 ## ライセンス
 

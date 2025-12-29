@@ -342,6 +342,8 @@ func generateAudio(ctx context.Context, cfg *config.Config, brief *model.Brief, 
 	switch cfg.TTS.Provider {
 	case "say":
 		ttsEngine = tts.NewSayTTS(ttsConfig)
+	case "sapi":
+		ttsEngine = tts.NewSAPITTS(*ttsConfig)
 	case "google_tts":
 		// Google Cloud認証情報を取得
 		credentialsJSON := tts.GetCredentialsJSON(cfg.TTS.GoogleCredentialsJSONEnv)

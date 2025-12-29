@@ -256,9 +256,9 @@ func (c *Config) Validate() error {
 	if c.TTS.Provider == "" {
 		c.TTS.Provider = "say" // デフォルト値
 	}
-	validTTSProviders := []string{"say", "openai_tts"}
+	validTTSProviders := []string{"say", "sapi", "google_tts", "openai_tts"}
 	if !contains(validTTSProviders, c.TTS.Provider) {
-		return fmt.Errorf("tts.provider は say または openai_tts である必要があります")
+		return fmt.Errorf("tts.provider は say, sapi, google_tts, openai_tts のいずれかである必要があります")
 	}
 	if c.TTS.Voice == "" {
 		c.TTS.Voice = "Kyoko" // デフォルト値

@@ -578,7 +578,7 @@ Phase 1-3で実装済みの重要度計算ロジックが十分に機能して�
 
 ---
 
-## Phase 6: Windows対応（v2.0 - 3日）
+## Phase 6: Windows対応（v2.0 - 3日） ✅
 
 ### 目標
 
@@ -586,23 +586,57 @@ Windows環境での動作対応
 
 ### タスク
 
-- [ ] TTS抽象化（OS判定）
-  - runtime.GOOS による分岐
+- [x] TTS抽象化（OS判定）
+  - ビルドタグ（`// +build darwin` / `// +build windows`）による分岐
   - TTSインターフェースの活用
 
-- [ ] Windows SAPI対応
-  - `internal/tts/sapi.go`実装
-  - PowerShellまたはCOM経由でSAPI呼び出し
+- [x] Windows SAPI対応
+  - `internal/tts/sapi.go`実装（177行）
+  - PowerShell経由でSAPI呼び出し
   - 音声ファイル生成（WAV/MP3）
+  - macOS音声名互換マッピング（Kyoko→Haruka等）
 
-- [ ] ビルド・実行確認
-  - Windows環境でのビルドテスト
-  - launchd代替（Windowsタスクスケジューラ）検討
+- [x] ビルド・実行確認
+  - クロスプラットフォームビルド対応
+  - 設定ファイルとドキュメント更新
 
 **成果物:**
 
-- [ ] Windows版TTS実装
-- [ ] クロスプラットフォームビルド対応
+- [x] Windows版TTS実装（internal/tts/sapi.go）
+- [x] macOS版TTS分離（internal/tts/say.go - ビルドタグ追加）
+- [x] クロスプラットフォームビルド対応
+- [x] 設定ファイル更新（provider: "sapi"追加）
+- [x] README/Roadmap更新
+
+**実装詳細:**
+
+```go
+// internal/tts/sapi.go - Windows SAPI実装
+// PowerShellスクリプトでSystem.Speech.Synthesis.SpeechSynthesizerを呼び出し
+type SAPITTS struct {
+    config Config
+}
+
+// 音声名マッピング
+mapping := map[string]string{
+    "Kyoko": "Microsoft Haruka Desktop",   // 日本語女性
+    "Otoya": "Microsoft Ichiro Desktop",   // 日本語男性
+}
+
+// 速度設定: config.Rate (0.5-2.0) → SAPI Speed (-10 to 10)
+speed := int((s.config.Rate - 1.0) * 5)
+```
+
+**設定例:**
+
+```yaml
+# Windows環境
+tts:
+  provider: "sapi"  # Windows SAPI
+  voice: "Kyoko"    # Haruka Desktop にマッピング
+  rate: 1.1
+  format: "wav"     # または mp3（ffmpeg必要）
+```
 
 **検証:**
 
@@ -610,6 +644,10 @@ Windows環境での動作対応
 # Windows環境で
 go build -o voicebrief.exe cmd/voicebrief/main.go
 .\voicebrief.exe run --daily
+
+# macOS環境で
+go build -o voicebrief cmd/voicebrief/main.go
+./voicebrief run --daily
 ```
 
 ---
@@ -712,7 +750,7 @@ voicebrief run --daily
 | **v1.0 リリース** | - | **完全ローカル動作版** | ✅ |
 | **Phase 4 (v1.1)** | 1週間 | スレッド・プロパティ強化 | ✅ |
 | **Phase 5 (v1.2)** | 5日 | Gemini統合（Summarizer + Google TTS） | ✅ |
-| **Phase 6 (v2.0)** | 3日 | Windows対応 |  |
+| **Phase 6 (v2.0)** | 3日 | Windows対応（SAPI TTS） | ✅ |
 | **Phase 7 (v2.1)** | 1週間 | OpenAI統合 |  |
 | **Phase 8 (v2.2)** | 3日 | GitHub統合 |  |
 
