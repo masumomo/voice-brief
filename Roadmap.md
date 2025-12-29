@@ -364,19 +364,27 @@ launchd連携と定期実行
 
 **タスク:**
 
-- [ ] `scripts/com.voicebrief.daily.plist`作成
+- [x] `scripts/com.voicebrief.daily.plist`作成
   - 毎朝8:00実行設定
+  - 標準出力・エラーログ設定
 
-- [ ] `scripts/com.voicebrief.weekly.plist`作成
+- [x] `scripts/com.voicebrief.weekly.plist`作成
   - 毎週月曜8:00実行設定
+  - 標準出力・エラーログ設定
 
-- [ ] `scripts/install.sh`作成
+- [x] `scripts/install.sh`作成
   - plistを`~/Library/LaunchAgents/`にコピー
+  - パス自動置換機能
   - `launchctl load`実行
+  - 環境変数チェック機能
+
+- [x] `scripts/uninstall.sh`作成
+  - launchdジョブのアンロード
+  - plistファイルの削除
 
 **成果物:**
 
-- [ ] launchd自動実行設定
+- [x] launchd自動実行設定
 
 **検証:**
 
@@ -384,6 +392,9 @@ launchd連携と定期実行
 ./scripts/install.sh
 launchctl list | grep voicebrief
 # 自動実行が登録されていることを確認
+
+# アンインストール
+./scripts/uninstall.sh
 ```
 
 ### Phase 3.2: Slack投稿機能（オプション）（1日）
@@ -412,7 +423,7 @@ voicebrief run --daily
 ### Phase 3 完了条件
 
 - [x] launchdで定期実行設定可能
-- [x] Slack投稿機能（オプション）動作
+- [ ] Slack投稿機能（オプション）動作
 - [x] README手順で自動化設定完了
 
 ---

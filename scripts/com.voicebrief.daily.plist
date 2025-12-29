@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- ジョブ識別名 -->
+    <key>Label</key>
+    <string>com.voicebrief.daily</string>
+
+    <!-- 実行するプログラム -->
+    <key>ProgramArguments</key>
+    <array>
+        <!-- REPLACE_WITH_VOICEBRIEF_PATH は install.sh で置換される -->
+        <string>REPLACE_WITH_VOICEBRIEF_PATH</string>
+        <string>run</string>
+        <string>--daily</string>
+    </array>
+
+    <!-- 環境変数（トークン設定） -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- 実際のトークンは ~/.zshrc や ~/.bashrc で設定すること -->
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- 実行スケジュール: 毎朝8:00 -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- 標準出力・標準エラー出力のログファイル -->
+    <key>StandardOutPath</key>
+    <string>/tmp/voicebrief-daily.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/voicebrief-daily-error.log</string>
+
+    <!-- システム起動時に自動的にロードする -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- プロセスがクラッシュした場合でも再起動しない（Daily実行なので不要） -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- 作業ディレクトリ -->
+    <key>WorkingDirectory</key>
+    <string>REPLACE_WITH_PROJECT_DIR</string>
+</dict>
+</plist>
