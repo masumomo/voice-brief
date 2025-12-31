@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/masumomo/voice-brief/internal/config"
 	"github.com/masumomo/voice-brief/internal/fetcher"
 	"github.com/masumomo/voice-brief/internal/logger"
@@ -21,6 +22,9 @@ import (
 const version = "v0.1.0-dev"
 
 func main() {
+	// .envファイルを読み込み（存在しない場合は無視）
+	_ = godotenv.Load()
+
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(0)
@@ -52,6 +56,7 @@ func main() {
 func handleRunCommand() {
 	// フラグの解析
 	var isDaily, isWeekly bool
+	var daysBack int
 	var outDir string
 	var dryRun bool
 	var debugDump bool
@@ -64,6 +69,18 @@ func handleRunCommand() {
 			isDaily = true
 		case "--weekly":
 			isWeekly = true
+		case "--days":
+			if i+1 < len(os.Args) {
+				if n, err := fmt.Sscanf(os.Args[i+1], "%d", &daysBack); err != nil || n != 1 {
+					fmt.Printf("エラー: --days には数値を指定してください\n")
+					os.Exit(1)
+				}
+				if daysBack <= 0 {
+					fmt.Printf("エラー: --days には1以上の数値を指定してください\n")
+					os.Exit(1)
+				}
+				i++
+			}
 		case "--out-dir":
 			if i+1 < len(os.Args) {
 				outDir = os.Args[i+1]
@@ -81,18 +98,34 @@ func handleRunCommand() {
 		}
 	}
 
-	// --daily と --weekly の両方が指定されていないか、両方指定された場合はエラー
-	if !isDaily && !isWeekly {
-		fmt.Println("エラー: --daily または --weekly を指定してください")
-		os.Exit(1)
+	// 期間指定の排他チェック
+	specifiedCount := 0
+	if isDaily {
+		specifiedCount++
 	}
-	if isDaily && isWeekly {
-		fmt.Println("エラー: --daily と --weekly は同時に指定できません")
+	if isWeekly {
+		specifiedCount++
+	}
+	if daysBack > 0 {
+		specifiedCount++
+	}
+
+	if specifiedCount > 1 {
+		fmt.Println("エラー: --daily, --weekly, --days は同時に指定できません")
 		os.Exit(1)
 	}
 
+	// デフォルト: 昨日一日分（--days 1 と同等）
+	if specifiedCount == 0 {
+		daysBack = 1
+	}
+
+	// BriefTypeの決定
 	briefType := model.BriefTypeDaily
 	if isWeekly {
+		briefType = model.BriefTypeWeekly
+	} else if daysBack >= 7 {
+		// 7日以上の場合はWeekly形式で出力
 		briefType = model.BriefTypeWeekly
 	}
 
@@ -120,9 +153,34 @@ func handleRunCommand() {
 	}
 	log := logger.New(level, false) // JSON形式はデフォルトOFF
 
+	// 期間の計算（設定されたタイムゾーンを使用）
+	loc := cfg.App.Location
+	var since, until time.Time
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	if isDaily {
+		// --daily: 過去24時間（従来の動作）
+		since = now.Add(-time.Duration(cfg.Brief.DailyWindowHours) * time.Hour)
+		until = now
+	} else if isWeekly {
+		// --weekly: 過去7日間（従来の動作）
+		since = now.Add(-time.Duration(cfg.Brief.WeeklyDays*24) * time.Hour)
+		until = now
+	} else {
+		// --days N または デフォルト: 過去N日分（日付単位）
+		// 例: --days 1 → 昨日の0:00〜23:59:59
+		// 例: --days 3 → 3日前の0:00〜昨日の23:59:59
+		since = today.AddDate(0, 0, -daysBack)
+		until = today.Add(-time.Nanosecond) // 昨日23:59:59.999...
+	}
+
 	log.Info("VoiceBrief starting", map[string]interface{}{
 		"version":    version,
 		"brief_type": string(briefType),
+		"days_back":  daysBack,
+		"since":      since.Format("2006-01-02 15:04:05"),
+		"until":      until.Format("2006-01-02 15:04:05"),
 		"dry_run":    dryRun,
 	})
 
@@ -134,13 +192,21 @@ func handleRunCommand() {
 	// ブリーフィング生成
 	fmt.Printf("🎙️  %s Briefing を生成中...\n\n", strings.Title(string(briefType)))
 
+	// 期間の表示
+	periodStr := fmt.Sprintf("%s 〜 %s", since.Format("2006-01-02"), until.Format("2006-01-02"))
+	if daysBack == 1 && !isDaily && !isWeekly {
+		periodStr = since.Format("2006-01-02") + "（昨日）"
+	}
+
 	// 1. データ取得
-	fmt.Println("📥 Step 1/4: データ取得中...")
+	fmt.Printf("📥 Step 1/4: データ取得中... [%s]\n", periodStr)
 	log.Debug("Starting data fetch", map[string]interface{}{
 		"brief_type": string(briefType),
+		"since":      since.Format("2006-01-02 15:04:05"),
+		"until":      until.Format("2006-01-02 15:04:05"),
 		"timeout":    timeout.String(),
 	})
-	events, err := fetchEvents(ctx, cfg, briefType)
+	events, err := fetchEvents(ctx, cfg, since, until)
 	if err != nil {
 		log.Error("Failed to fetch events", map[string]interface{}{
 			"error": err.Error(),
@@ -176,14 +242,24 @@ func handleRunCommand() {
 	})
 	fmt.Printf("✓ 要約生成完了 (対象: %d 件)\n\n", brief.GetEventCount())
 
-	// 3. ファイル出力（Markdown）
-	fmt.Println("💾 Step 3/4: Markdownファイル保存中...")
-	markdownPath, err := saveMarkdown(cfg.App.OutputDir, brief)
+	// 3. ファイル出力（Markdown + Script + Events）
+	fmt.Println("💾 Step 3/4: ファイル保存中...")
+	markdownPath, scriptPath, err := saveMarkdown(cfg.App.OutputDir, brief)
 	if err != nil {
-		fmt.Printf("❌ エラー: Markdown保存に失敗: %v\n", err)
+		fmt.Printf("❌ エラー: ファイル保存に失敗: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("✓ Markdownを保存: %s\n\n", markdownPath)
+	fmt.Printf("✓ Markdownを保存: %s\n", markdownPath)
+	fmt.Printf("✓ スクリプトを保存: %s\n", scriptPath)
+
+	// イベント詳細を保存
+	eventsPath, err := saveEventsDetail(cfg.App.OutputDir, events, brief)
+	if err != nil {
+		fmt.Printf("⚠️  警告: イベント詳細の保存に失敗: %v\n", err)
+	} else {
+		fmt.Printf("✓ イベント詳細を保存: %s\n", eventsPath)
+	}
+	fmt.Println()
 
 	// 4. 音声生成
 	if dryRun {
@@ -191,6 +267,7 @@ func handleRunCommand() {
 		fmt.Println("🔇 Step 4/4: 音声生成スキップ (--dry-run)")
 		fmt.Printf("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
 		fmt.Printf("📄 Markdown: %s\n", markdownPath)
+		fmt.Printf("📝 Script: %s\n", scriptPath)
 		return
 	}
 
@@ -236,6 +313,7 @@ func handleRunCommand() {
 	})
 	fmt.Printf("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
 	fmt.Printf("📄 Markdown: %s\n", markdownPath)
+	fmt.Printf("📝 Script: %s\n", scriptPath)
 	fmt.Printf("🔊 Audio: %s\n", audioPath)
 	if cfg.Slack.PostEnabled {
 		fmt.Printf("📤 Slack: #%s\n", cfg.Slack.PostChannel)
@@ -243,19 +321,23 @@ func handleRunCommand() {
 }
 
 // fetchEvents はイベントを取得します
-func fetchEvents(ctx context.Context, cfg *config.Config, briefType model.BriefType) (model.Events, error) {
+func fetchEvents(ctx context.Context, cfg *config.Config, since, until time.Time) (model.Events, error) {
 	multiFetcher := fetcher.NewMultiFetcher(cfg)
-
-	var since time.Time
-	if briefType == model.BriefTypeDaily {
-		since = time.Now().Add(-time.Duration(cfg.Brief.DailyWindowHours) * time.Hour)
-	} else {
-		since = time.Now().Add(-time.Duration(cfg.Brief.WeeklyDays*24) * time.Hour)
-	}
 
 	events, err := multiFetcher.Fetch(ctx, since)
 	if err != nil {
 		return nil, err
+	}
+
+	// untilでフィルタリング（指定期間内のイベントのみ）
+	if !until.IsZero() {
+		var filtered model.Events
+		for _, event := range events {
+			if event.Timestamp.Before(until) || event.Timestamp.Equal(until) {
+				filtered = append(filtered, event)
+			}
+		}
+		events = filtered
 	}
 
 	return events, nil
@@ -338,29 +420,36 @@ func generateBrief(cfg *config.Config, events model.Events, briefType model.Brie
 }
 
 // saveMarkdown はMarkdownを保存します
-func saveMarkdown(outDir string, brief *model.Brief) (string, error) {
+func saveMarkdown(outDir string, brief *model.Brief) (markdownPath, scriptPath string, err error) {
 	// 出力パスを生成
-	var subDir, filename string
+	var subDir, baseName string
 	if brief.Type == model.BriefTypeDaily {
 		subDir = "daily"
-		filename = brief.GeneratedAt.Format("2006-01-02") + ".md"
+		baseName = brief.GeneratedAt.Format("2006-01-02")
 	} else {
 		year, week := brief.WindowStart.ISOWeek()
 		subDir = "weekly"
-		filename = fmt.Sprintf("%d-W%02d.md", year, week)
+		baseName = fmt.Sprintf("%d-W%02d", year, week)
 	}
 
 	dirPath := filepath.Join(outDir, subDir)
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
-		return "", fmt.Errorf("ディレクトリ作成に失敗: %w", err)
+		return "", "", fmt.Errorf("ディレクトリ作成に失敗: %w", err)
 	}
 
-	filePath := filepath.Join(dirPath, filename)
-	if err := os.WriteFile(filePath, []byte(brief.ScriptMarkdown), 0644); err != nil {
-		return "", fmt.Errorf("ファイル書き込みに失敗: %w", err)
+	// Markdownファイルを保存
+	markdownPath = filepath.Join(dirPath, baseName+".md")
+	if err := os.WriteFile(markdownPath, []byte(brief.ScriptMarkdown), 0644); err != nil {
+		return "", "", fmt.Errorf("Markdownファイル書き込みに失敗: %w", err)
 	}
 
-	return filePath, nil
+	// スクリプトファイルを保存
+	scriptPath = filepath.Join(dirPath, baseName+"_script.md")
+	if err := os.WriteFile(scriptPath, []byte(brief.ScriptText), 0644); err != nil {
+		return "", "", fmt.Errorf("スクリプトファイル書き込みに失敗: %w", err)
+	}
+
+	return markdownPath, scriptPath, nil
 }
 
 // generateAudio は音声ファイルを生成します
@@ -465,6 +554,91 @@ func dumpEventsToFile(outDir string, events model.Events, briefType model.BriefT
 	return nil
 }
 
+// saveEventsDetail はイベントの詳細をMarkdown形式で保存します
+func saveEventsDetail(outDir string, events model.Events, brief *model.Brief) (string, error) {
+	// 出力パスを生成
+	var subDir, baseName string
+	if brief.Type == model.BriefTypeDaily {
+		subDir = "daily"
+		baseName = brief.GeneratedAt.Format("2006-01-02")
+	} else {
+		year, week := brief.WindowStart.ISOWeek()
+		subDir = "weekly"
+		baseName = fmt.Sprintf("%d-W%02d", year, week)
+	}
+
+	dirPath := filepath.Join(outDir, subDir)
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
+		return "", fmt.Errorf("ディレクトリ作成に失敗: %w", err)
+	}
+
+	filePath := filepath.Join(dirPath, baseName+"_events.md")
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("# 取得イベント詳細\n\n"))
+	sb.WriteString(fmt.Sprintf("- **期間**: %s 〜 %s\n",
+		brief.WindowStart.Format("2006-01-02 15:04"),
+		brief.WindowEnd.Format("2006-01-02 15:04")))
+	sb.WriteString(fmt.Sprintf("- **取得件数**: %d件\n\n", len(events)))
+	sb.WriteString("---\n\n")
+
+	// ソース別にグループ化
+	sourceEvents := make(map[string]model.Events)
+	for _, event := range events {
+		sourceEvents[event.Source] = append(sourceEvents[event.Source], event)
+	}
+
+	for source, evts := range sourceEvents {
+		sb.WriteString(fmt.Sprintf("## %s (%d件)\n\n", source, len(evts)))
+
+		for i, event := range evts {
+			sb.WriteString(fmt.Sprintf("### %d. %s\n\n", i+1, event.Title))
+			sb.WriteString(fmt.Sprintf("- **ID**: `%s`\n", event.ID))
+			sb.WriteString(fmt.Sprintf("- **ソース**: %s\n", event.Source))
+			sb.WriteString(fmt.Sprintf("- **場所**: %s\n", event.Location))
+			sb.WriteString(fmt.Sprintf("- **カテゴリ**: %s\n", event.Category))
+			sb.WriteString(fmt.Sprintf("- **重要度**: %d/100\n", event.Importance))
+			sb.WriteString(fmt.Sprintf("- **時刻**: %s\n", event.Timestamp.Format("2006-01-02 15:04:05")))
+			sb.WriteString(fmt.Sprintf("- **投稿者**: %s\n", event.Author))
+			if event.URL != "" {
+				sb.WriteString(fmt.Sprintf("- **URL**: %s\n", event.URL))
+			}
+
+			// Notion固有の詳細情報
+			if event.Source == "notion" {
+				if changeType, ok := event.Refs["change_type"]; ok {
+					sb.WriteString(fmt.Sprintf("- **変更種別**: %s\n", changeType))
+				}
+				if createdAt, ok := event.Refs["created_at"]; ok {
+					sb.WriteString(fmt.Sprintf("- **作成日時**: %s\n", createdAt))
+				}
+				if updatedAt, ok := event.Refs["updated_at"]; ok {
+					sb.WriteString(fmt.Sprintf("- **更新日時**: %s\n", updatedAt))
+				}
+				if properties, ok := event.Refs["properties"]; ok && properties != "" {
+					sb.WriteString(fmt.Sprintf("- **プロパティ**: %s\n", properties))
+				}
+			}
+			sb.WriteString("\n")
+
+			if event.Body != "" {
+				sb.WriteString("**本文:**\n\n")
+				sb.WriteString("```\n")
+				sb.WriteString(event.Body)
+				sb.WriteString("\n```\n\n")
+			}
+
+			sb.WriteString("---\n\n")
+		}
+	}
+
+	if err := os.WriteFile(filePath, []byte(sb.String()), 0644); err != nil {
+		return "", fmt.Errorf("イベント詳細ファイル書き込みに失敗: %w", err)
+	}
+
+	return filePath, nil
+}
+
 func handleConfigCommand(subcommand string) {
 	if subcommand != "check" {
 		fmt.Printf("エラー: 不明なサブコマンド 'config %s'\n", subcommand)
@@ -496,6 +670,7 @@ func handleConfigCommand(subcommand string) {
 	// 基本設定の確認
 	fmt.Printf("✓ 出力ディレクトリ: %s\n", cfg.App.OutputDir)
 	fmt.Printf("✓ ログレベル: %s\n", cfg.App.LogLevel)
+	fmt.Printf("✓ タイムゾーン: %s\n", cfg.App.Location.String())
 
 	// Slack設定の確認
 	fmt.Printf("✓ Slack Token: 環境変数 %s から読み込み済み\n", cfg.Slack.TokenEnv)
@@ -719,15 +894,22 @@ func printUsage() {
 	fmt.Println("VoiceBrief", version)
 	fmt.Println("音声で聞く、チームの最新情報")
 	fmt.Println("\nUsage:")
-	fmt.Println("  voicebrief run --daily          Daily Briefingを生成")
-	fmt.Println("  voicebrief run --weekly         Weekly Briefingを生成")
+	fmt.Println("  voicebrief run                  Briefingを生成（デフォルト: 昨日一日分）")
+	fmt.Println("  voicebrief run --days N         過去N日分のBriefingを生成")
+	fmt.Println("  voicebrief run --daily          Daily Briefing（過去24時間）")
+	fmt.Println("  voicebrief run --weekly         Weekly Briefing（過去7日間）")
 	fmt.Println("  voicebrief config check         設定ファイルを検証")
 	fmt.Println("  voicebrief doctor               API接続を確認")
 	fmt.Println("  voicebrief version              バージョン情報を表示")
 	fmt.Println("\nOptions:")
+	fmt.Println("  --days N                        過去N日分のデータを取得 (default: 1)")
 	fmt.Println("  --config PATH                   設定ファイルパス (default: ./config.yaml)")
 	fmt.Println("  --out-dir PATH                  出力ディレクトリ (default: ./out)")
 	fmt.Println("  --dry-run                       音声生成・投稿をスキップ")
 	fmt.Println("  --debug-dump                    生データをout/debug/に保存")
 	fmt.Println("  --log-level LEVEL               ログレベル (debug|info|warn|error)")
+	fmt.Println("\nExamples:")
+	fmt.Println("  voicebrief run                  # 昨日一日分を取得")
+	fmt.Println("  voicebrief run --days 3         # 過去3日分を取得")
+	fmt.Println("  voicebrief run --dry-run        # 音声なしで原稿のみ生成")
 }

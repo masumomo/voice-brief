@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -24,6 +25,8 @@ type Config struct {
 type AppConfig struct {
 	OutputDir string `yaml:"output_dir"`
 	LogLevel  string `yaml:"log_level"`
+	Timezone  string `yaml:"timezone"` // タイムゾーン（例: "Asia/Tokyo"）
+	Location  *time.Location `yaml:"-"` // パース済みタイムゾーン
 }
 
 // SlackConfig はSlack関連設定
@@ -60,13 +63,21 @@ type NotionConfig struct {
 
 // DatabaseConfig はNotionデータベース設定
 type DatabaseConfig struct {
-	ID                string            `yaml:"id"`
-	Name              string            `yaml:"name"`
-	Properties        []string          `yaml:"properties"`
-	FetchPageContent  bool              `yaml:"fetch_page_content"`  // ページ本文を取得するか
-	PropertyFilters   map[string]string `yaml:"property_filters"`    // プロパティフィルタ (例: Status: "In Progress")
-	CategoryProperty  string            `yaml:"category_property"`   // カテゴリ判定に使うプロパティ
-	ProjectProperty   string            `yaml:"project_property"`    // プロジェクト判定に使うプロパティ
+	ID               string            `yaml:"id"`
+	Name             string            `yaml:"name"`
+	Properties       []string          `yaml:"properties"`
+	MaxContentBlocks *int              `yaml:"max_content_blocks"`  // 取得する本文ブロック数（0:取得しない、未指定:デフォルト5）
+	PropertyFilters  map[string]string `yaml:"property_filters"`    // プロパティフィルタ (例: Status: "In Progress")
+	CategoryProperty string            `yaml:"category_property"`   // カテゴリ判定に使うプロパティ
+	ProjectProperty  string            `yaml:"project_property"`    // プロジェクト判定に使うプロパティ
+}
+
+// GetMaxContentBlocks は取得する本文ブロック数を返します（デフォルト: 5）
+func (d *DatabaseConfig) GetMaxContentBlocks() int {
+	if d.MaxContentBlocks == nil {
+		return 5 // デフォルト5ブロック
+	}
+	return *d.MaxContentBlocks
 }
 
 // GitHubConfig はGitHub関連設定
@@ -205,6 +216,20 @@ func (c *Config) Validate() error {
 	validLogLevels := []string{"debug", "info", "warn", "error"}
 	if !contains(validLogLevels, c.App.LogLevel) {
 		return fmt.Errorf("app.log_level は debug, info, warn, error のいずれかである必要があります")
+	}
+
+	// タイムゾーンの検証とパース
+	if c.App.Timezone == "" {
+		c.App.Timezone = "Local" // デフォルト: システムのローカルタイムゾーン
+	}
+	if c.App.Timezone == "Local" {
+		c.App.Location = time.Local
+	} else {
+		loc, err := time.LoadLocation(c.App.Timezone)
+		if err != nil {
+			return fmt.Errorf("app.timezone が不正です: %w", err)
+		}
+		c.App.Location = loc
 	}
 
 	// Slack設定の検証

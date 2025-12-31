@@ -119,21 +119,42 @@ func (f *NotionFetcher) pageToEvent(ctx context.Context, page *notionapi.Page, d
 	// タイトル取得
 	event.Title = f.extractTitle(page)
 
-	// プロパティ情報を本文に含める
+	// 新規/更新の判定
+	createdTime := time.Time(page.CreatedTime)
+	lastEditedTime := time.Time(page.LastEditedTime)
+	isNewPage := lastEditedTime.Sub(createdTime) < 5*time.Minute // 作成から5分以内なら新規
+
+	if isNewPage {
+		event.Refs["change_type"] = "新規作成"
+	} else {
+		event.Refs["change_type"] = "更新"
+	}
+	event.Refs["created_at"] = createdTime.Format("2006-01-02 15:04:05")
+	event.Refs["updated_at"] = lastEditedTime.Format("2006-01-02 15:04:05")
+
+	// 全プロパティを詳細に取得
+	allProperties := f.extractAllProperties(page)
+	event.Refs["properties"] = allProperties
+
+	// プロパティ情報を本文に含める（指定されたプロパティのみ）
 	event.Body = f.extractProperties(page, database.Properties)
 
-	// ページ本文取得（オプション）
-	if database.FetchPageContent {
-		pageContent := f.fetchPageContent(ctx, notionapi.PageID(page.ID))
+	// ページ本文取得（max_content_blocks > 0 の場合）
+	maxBlocks := database.GetMaxContentBlocks()
+	if maxBlocks > 0 {
+		pageContent := f.fetchPageContent(ctx, notionapi.PageID(page.ID), maxBlocks)
 		if pageContent != "" {
-			event.Body = event.Body + "\n\n" + pageContent
+			event.Body = event.Body + "\n\n---\n\n" + pageContent
 		}
 	}
 
 	// 最終編集者
-	// User情報は簡易的にIDを使用（詳細取得はAPI制限を考慮して省略）
 	if page.LastEditedBy.ID != "" {
 		event.Author = string(page.LastEditedBy.ID)
+		// ユーザー名も取得試行
+		if page.LastEditedBy.Name != "" {
+			event.Author = page.LastEditedBy.Name
+		}
 	} else {
 		event.Author = "Unknown"
 	}
@@ -143,8 +164,7 @@ func (f *NotionFetcher) pageToEvent(ctx context.Context, page *notionapi.Page, d
 	event.Refs["database_name"] = database.Name
 	event.Refs["page_id"] = string(page.ID)
 
-	// カテゴリの判定（プロパティから）
-	event.Category = f.detectCategoryFromProperties(page, database)
+	// カテゴリはMultiFetcherのCategorizerで判定される
 
 	// プロジェクト情報の追加
 	if database.ProjectProperty != "" {
@@ -154,6 +174,20 @@ func (f *NotionFetcher) pageToEvent(ctx context.Context, page *notionapi.Page, d
 	}
 
 	return event
+}
+
+// extractAllProperties は全プロパティを文字列として抽出します
+func (f *NotionFetcher) extractAllProperties(page *notionapi.Page) string {
+	var parts []string
+
+	for propName, prop := range page.Properties {
+		value := f.formatPropertyValue(prop)
+		if value != "" {
+			parts = append(parts, fmt.Sprintf("%s: %s", propName, value))
+		}
+	}
+
+	return strings.Join(parts, " | ")
 }
 
 // extractTitle はページタイトルを抽出します
@@ -247,68 +281,6 @@ func (f *NotionFetcher) formatPropertyValue(prop notionapi.Property) string {
 	return ""
 }
 
-// detectCategoryFromProperties はプロパティからカテゴリを判定します
-func (f *NotionFetcher) detectCategoryFromProperties(page *notionapi.Page, database config.DatabaseConfig) string {
-	// CategoryProperty が指定されている場合はそれを優先
-	if database.CategoryProperty != "" {
-		if value := f.getPropertyValue(page, database.CategoryProperty); value != "" {
-			return f.mapToCategory(value)
-		}
-	}
-
-	// Status や Tag などから判定
-	for _, propName := range database.Properties {
-		if prop, exists := page.Properties[propName]; exists {
-			value := strings.ToLower(f.formatPropertyValue(prop))
-
-			// Status ベースの判定
-			if strings.Contains(propName, "Status") || strings.Contains(propName, "ステータス") {
-				if containsAny(value, []string{"blocked", "ブロック", "問題"}) {
-					return model.EventCategoryIncident
-				}
-				if containsAny(value, []string{"in progress", "進行中", "doing"}) {
-					return model.EventCategoryDev
-				}
-			}
-
-			// Tag ベースの判定
-			if strings.Contains(propName, "Tag") || strings.Contains(propName, "タグ") {
-				if containsAny(value, []string{"dev", "開発", "技術"}) {
-					return model.EventCategoryDev
-				}
-				if containsAny(value, []string{"biz", "business", "ビジネス", "営業"}) {
-					return model.EventCategoryBiz
-				}
-				if containsAny(value, []string{"ops", "運用", "インフラ"}) {
-					return model.EventCategoryOps
-				}
-			}
-		}
-	}
-
-	return model.EventCategoryOther
-}
-
-// mapToCategory はプロパティ値をカテゴリにマッピングします
-func (f *NotionFetcher) mapToCategory(value string) string {
-	lower := strings.ToLower(value)
-
-	if containsAny(lower, []string{"incident", "障害", "問題", "blocked"}) {
-		return model.EventCategoryIncident
-	}
-	if containsAny(lower, []string{"dev", "開発", "技術", "development"}) {
-		return model.EventCategoryDev
-	}
-	if containsAny(lower, []string{"biz", "business", "ビジネス", "営業"}) {
-		return model.EventCategoryBiz
-	}
-	if containsAny(lower, []string{"ops", "運用", "インフラ", "operations"}) {
-		return model.EventCategoryOps
-	}
-
-	return model.EventCategoryOther
-}
-
 // extractRichText はRichTextの配列からプレーンテキストを抽出します
 func extractRichText(richTexts []notionapi.RichText) string {
 	parts := make([]string, 0)
@@ -345,7 +317,7 @@ func (f *NotionFetcher) getPropertyValue(page *notionapi.Page, propName string) 
 }
 
 // fetchPageContent はページの本文（ブロック）を取得します
-func (f *NotionFetcher) fetchPageContent(ctx context.Context, pageID notionapi.PageID) string {
+func (f *NotionFetcher) fetchPageContent(ctx context.Context, pageID notionapi.PageID, maxBlocks int) string {
 	// ページのブロック（本文）を取得
 	blocks, err := f.client.Block.GetChildren(ctx, notionapi.BlockID(pageID), nil)
 	if err != nil {
@@ -353,16 +325,18 @@ func (f *NotionFetcher) fetchPageContent(ctx context.Context, pageID notionapi.P
 		return ""
 	}
 
-	// ブロックからテキストを抽出（簡易版：最初の3つのブロックのみ）
+	// ブロックからテキストを抽出
 	textParts := make([]string, 0)
-	for i, block := range blocks.Results {
-		if i >= 3 {
-			break // 最初の3ブロックのみ
+	count := 0
+	for _, block := range blocks.Results {
+		if count >= maxBlocks {
+			break
 		}
 
 		text := f.extractBlockText(block)
 		if text != "" {
 			textParts = append(textParts, text)
+			count++
 		}
 	}
 
@@ -377,19 +351,40 @@ func (f *NotionFetcher) extractBlockText(block notionapi.Block) string {
 		return extractRichText(paragraphBlock.Paragraph.RichText)
 	case notionapi.BlockTypeHeading1:
 		heading1Block := block.(*notionapi.Heading1Block)
-		return extractRichText(heading1Block.Heading1.RichText)
+		return "# " + extractRichText(heading1Block.Heading1.RichText)
 	case notionapi.BlockTypeHeading2:
 		heading2Block := block.(*notionapi.Heading2Block)
-		return extractRichText(heading2Block.Heading2.RichText)
+		return "## " + extractRichText(heading2Block.Heading2.RichText)
 	case notionapi.BlockTypeHeading3:
 		heading3Block := block.(*notionapi.Heading3Block)
-		return extractRichText(heading3Block.Heading3.RichText)
+		return "### " + extractRichText(heading3Block.Heading3.RichText)
 	case notionapi.BlockTypeBulletedListItem:
 		bulletBlock := block.(*notionapi.BulletedListItemBlock)
 		return "• " + extractRichText(bulletBlock.BulletedListItem.RichText)
 	case notionapi.BlockTypeNumberedListItem:
 		numberedBlock := block.(*notionapi.NumberedListItemBlock)
-		return extractRichText(numberedBlock.NumberedListItem.RichText)
+		return "1. " + extractRichText(numberedBlock.NumberedListItem.RichText)
+	case notionapi.BlockTypeToggle:
+		toggleBlock := block.(*notionapi.ToggleBlock)
+		return "▶ " + extractRichText(toggleBlock.Toggle.RichText)
+	case notionapi.BlockTypeQuote:
+		quoteBlock := block.(*notionapi.QuoteBlock)
+		return "> " + extractRichText(quoteBlock.Quote.RichText)
+	case notionapi.BlockTypeCallout:
+		calloutBlock := block.(*notionapi.CalloutBlock)
+		return "💡 " + extractRichText(calloutBlock.Callout.RichText)
+	case notionapi.BlockTypeCode:
+		codeBlock := block.(*notionapi.CodeBlock)
+		return "```\n" + extractRichText(codeBlock.Code.RichText) + "\n```"
+	case notionapi.BlockTypeToDo:
+		todoBlock := block.(*notionapi.ToDoBlock)
+		checkbox := "☐"
+		if todoBlock.ToDo.Checked {
+			checkbox = "☑"
+		}
+		return checkbox + " " + extractRichText(todoBlock.ToDo.RichText)
+	case notionapi.BlockTypeDivider:
+		return "---"
 	default:
 		return ""
 	}

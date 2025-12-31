@@ -1,4 +1,4 @@
-.PHONY: help build test clean run-daily run-weekly config-check doctor install dev lint coverage
+.PHONY: help build test clean run run-daily run-weekly config-check doctor install dev lint coverage
 
 # デフォルトターゲット
 help:
@@ -10,8 +10,9 @@ help:
 	@echo "  make coverage      カバレッジレポートを生成"
 	@echo "  make lint          コードを静的解析"
 	@echo "  make clean         ビルド成果物を削除"
-	@echo "  make run-daily     Daily Briefingを生成"
-	@echo "  make run-weekly    Weekly Briefingを生成"
+	@echo "  make run           Briefingを生成（昨日一日分）"
+	@echo "  make run-daily     Daily Briefingを生成（過去24時間）"
+	@echo "  make run-weekly    Weekly Briefingを生成（過去7日間）"
 	@echo "  make config-check  設定ファイルを検証"
 	@echo "  make doctor        API接続を確認"
 	@echo "  make install       launchdに登録（自動実行設定）"
@@ -66,7 +67,17 @@ clean:
 	rm -rf out/debug/*
 	@echo "Clean complete"
 
-# Daily Briefing生成
+# Briefing生成（デフォルト: 昨日一日分）
+run: build-fast
+	@echo "Running Briefing (yesterday)..."
+	./$(BINARY_NAME) run
+
+# Briefing生成（Dry-run）
+run-dry: build-fast
+	@echo "Running Briefing (dry-run)..."
+	./$(BINARY_NAME) run --dry-run
+
+# Daily Briefing生成（過去24時間、従来互換）
 run-daily: build-fast
 	@echo "Running Daily Briefing..."
 	./$(BINARY_NAME) run --daily

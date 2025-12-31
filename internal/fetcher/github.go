@@ -186,8 +186,7 @@ func (f *GitHubFetcher) commitToEvent(commit *github.RepositoryCommit, owner, re
 		event.Refs["deletions"] = fmt.Sprintf("%d", commit.GetStats().GetDeletions())
 	}
 
-	// カテゴリ判定
-	event.Category = f.detectCommitCategory(message)
+	// カテゴリはMultiFetcherのCategorizerで判定される
 
 	return event
 }
@@ -237,65 +236,7 @@ func (f *GitHubFetcher) issueToEvent(issue *github.Issue, owner, repo string) *m
 		event.Refs["labels"] = strings.Join(labels, ",")
 	}
 
-	// カテゴリ判定
-	event.Category = f.detectIssueCategory(issue, labels)
+	// カテゴリはMultiFetcherのCategorizerで判定される
 
 	return event
-}
-
-// detectCommitCategory はコミットメッセージからカテゴリを判定します
-func (f *GitHubFetcher) detectCommitCategory(message string) string {
-	lower := strings.ToLower(message)
-
-	// Conventional Commits形式を考慮
-	if strings.HasPrefix(lower, "fix") || strings.HasPrefix(lower, "hotfix") {
-		return model.EventCategoryIncident
-	}
-	if strings.HasPrefix(lower, "feat") || strings.HasPrefix(lower, "feature") {
-		return model.EventCategoryDev
-	}
-	if strings.HasPrefix(lower, "refactor") || strings.HasPrefix(lower, "perf") {
-		return model.EventCategoryDev
-	}
-	if strings.HasPrefix(lower, "chore") || strings.HasPrefix(lower, "ci") {
-		return model.EventCategoryOps
-	}
-
-	// キーワードベースの判定
-	if containsAny(lower, []string{"bug", "fix", "error", "crash", "critical"}) {
-		return model.EventCategoryIncident
-	}
-	if containsAny(lower, []string{"feature", "add", "implement", "update"}) {
-		return model.EventCategoryDev
-	}
-
-	return model.EventCategoryOther
-}
-
-// detectIssueCategory はIssue/PRのラベルや内容からカテゴリを判定します
-func (f *GitHubFetcher) detectIssueCategory(issue *github.Issue, labels []string) string {
-	// ラベルベースの判定
-	for _, label := range labels {
-		lower := strings.ToLower(label)
-		if containsAny(lower, []string{"bug", "critical", "incident", "hotfix"}) {
-			return model.EventCategoryIncident
-		}
-		if containsAny(lower, []string{"feature", "enhancement", "development"}) {
-			return model.EventCategoryDev
-		}
-		if containsAny(lower, []string{"ops", "infrastructure", "ci", "cd"}) {
-			return model.EventCategoryOps
-		}
-	}
-
-	// タイトル・本文ベースの判定
-	text := strings.ToLower(issue.GetTitle() + " " + issue.GetBody())
-	if containsAny(text, []string{"bug", "error", "crash", "broken"}) {
-		return model.EventCategoryIncident
-	}
-	if containsAny(text, []string{"feature", "enhancement", "implement"}) {
-		return model.EventCategoryDev
-	}
-
-	return model.EventCategoryOther
 }

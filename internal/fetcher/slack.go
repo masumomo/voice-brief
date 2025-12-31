@@ -145,8 +145,7 @@ func (f *SlackFetcher) messageToEvent(msg *slack.Message, channel config.Channel
 		event.Refs["thread_count"] = strconv.Itoa(msg.ReplyCount)
 	}
 
-	// カテゴリの自動判定（簡易版）
-	event.Category = f.detectCategory(msg.Text)
+	// カテゴリはMultiFetcherのCategorizerで判定される
 
 	return event
 }
@@ -161,28 +160,6 @@ func (f *SlackFetcher) getUserName(userID string) string {
 	// v1.0では簡易的にユーザーIDをそのまま返す
 	// TODO: Phase 1.1+ でユーザー名取得を実装
 	return userID
-}
-
-// detectCategory はメッセージ内容からカテゴリを判定します
-func (f *SlackFetcher) detectCategory(text string) string {
-	lower := strings.ToLower(text)
-
-	// Incident関連
-	if containsAny(lower, []string{"障害", "エラー", "停止", "down", "error", "incident", "緊急"}) {
-		return model.EventCategoryIncident
-	}
-
-	// Dev関連
-	if containsAny(lower, []string{"pr", "pull request", "レビュー", "review", "deploy", "デプロイ", "リリース", "release"}) {
-		return model.EventCategoryDev
-	}
-
-	// Biz関連
-	if containsAny(lower, []string{"会議", "meeting", "ミーティング", "打ち合わせ", "定例"}) {
-		return model.EventCategoryBiz
-	}
-
-	return model.EventCategoryOther
 }
 
 // applyFilters はフィルタを適用します
@@ -221,16 +198,6 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
-}
-
-// containsAny はいずれかの文字列が含まれているかチェックします
-func containsAny(text string, keywords []string) bool {
-	for _, keyword := range keywords {
-		if strings.Contains(text, keyword) {
-			return true
-		}
-	}
-	return false
 }
 
 // fetchThreadReplies はスレッドの返信を取得して、親イベントに情報を追加します

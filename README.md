@@ -190,16 +190,6 @@ tts:
   # google_credentials_json_env: "GOOGLE_APPLICATION_CREDENTIALS_JSON"  # Google TTS使用時
 ```
 
-**Channel IDの確認方法:**
-
-- Slackでチャンネルを右クリック→「Copy link」
-- URLの最後の部分（例: `C01234567`）がChannel ID
-
-**Database IDの確認方法:**
-
-- NotionでデータベースをFull pageで開く
-- URLの`?v=`より前の部分（32文字のハイフン区切り文字列）
-
 ## ビルドと実行
 
 ### Makefile使用（推奨）
@@ -280,9 +270,18 @@ open out/daily/$(date +%Y-%m-%d).m4a
 ブリーフィングを生成します。
 
 ```bash
-voicebrief run --daily   # Daily Briefing（過去24時間）
-voicebrief run --weekly  # Weekly Briefing（過去7日間）
+voicebrief run             # デフォルト: 昨日一日分を取得
+voicebrief run --days 3    # 過去3日分を取得
+voicebrief run --daily     # Daily Briefing（過去24時間、従来互換）
+voicebrief run --weekly    # Weekly Briefing（過去7日間、従来互換）
 ```
+
+**期間指定:**
+
+- 引数なし: 昨日一日分（0:00〜23:59）を取得
+- `--days N`: 過去N日分を取得（日付単位で計算）
+- `--daily`: 過去24時間（config設定の`daily_window_hours`を使用）
+- `--weekly`: 過去7日間（config設定の`weekly_days`を使用）
 
 **オプション:**
 
@@ -291,6 +290,19 @@ voicebrief run --weekly  # Weekly Briefing（過去7日間）
 - `--dry-run`: 音声生成・投稿をスキップ（原稿のみ生成）
 - `--debug-dump`: 生データを`out/debug/`に保存（デバッグ用）
 - `--log-level LEVEL`: ログレベル（`debug`, `info`, `warn`, `error`）
+
+**例:**
+
+```bash
+# 昨日の更新情報を音声で生成
+voicebrief run
+
+# 過去1週間分の更新情報を取得（WeeklyBriefing形式で出力）
+voicebrief run --days 7
+
+# 原稿だけ確認したい場合
+voicebrief run --dry-run
+```
 
 ### `voicebrief config check`
 

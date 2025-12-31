@@ -114,7 +114,20 @@ func (s *OpenAISummarizer) generateBriefWithOpenAI(brief *model.Brief, briefType
 	ctx := context.Background()
 
 	// プロンプト構築
+	systemPrompt := s.getSystemPrompt(briefType)
 	prompt := s.buildPrompt(brief, briefType)
+
+	// API呼び出しログ
+	fmt.Printf("🤖 OpenAI API 呼び出し開始: model=%s, events=%d, prompt_length=%d\n",
+		s.model, len(brief.Items), len(prompt))
+	fmt.Println("─────────────────────────────────────────")
+	fmt.Println("📝 システムプロンプト:")
+	fmt.Println(systemPrompt)
+	fmt.Println("─────────────────────────────────────────")
+	fmt.Println("📝 ユーザープロンプト:")
+	fmt.Println(prompt)
+	fmt.Println("─────────────────────────────────────────")
+	startTime := time.Now()
 
 	// OpenAI Chat Completion API呼び出し
 	resp, err := s.client.CreateChatCompletion(
@@ -124,7 +137,7 @@ func (s *OpenAISummarizer) generateBriefWithOpenAI(brief *model.Brief, briefType
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleSystem,
-					Content: s.getSystemPrompt(briefType),
+					Content: systemPrompt,
 				},
 				{
 					Role:    openai.ChatMessageRoleUser,
@@ -135,8 +148,10 @@ func (s *OpenAISummarizer) generateBriefWithOpenAI(brief *model.Brief, briefType
 			MaxTokens:   2000, // 出力トークン数制限
 		},
 	)
+	elapsed := time.Since(startTime)
 
 	if err != nil {
+		fmt.Printf("❌ OpenAI API エラー: %v (elapsed=%v)\n", err, elapsed)
 		return "", "", fmt.Errorf("OpenAI API呼び出しに失敗: %w", err)
 	}
 
@@ -145,8 +160,8 @@ func (s *OpenAISummarizer) generateBriefWithOpenAI(brief *model.Brief, briefType
 	s.totalPromptTokens += resp.Usage.PromptTokens
 	s.totalCompletionTokens += resp.Usage.CompletionTokens
 
-	fmt.Printf("📊 OpenAI API使用量: Prompt=%d, Completion=%d, Total=%d tokens\n",
-		resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens)
+	fmt.Printf("📊 OpenAI API 完了: prompt_tokens=%d, completion_tokens=%d, total_tokens=%d, elapsed=%v\n",
+		resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens, elapsed)
 
 	if len(resp.Choices) == 0 {
 		return "", "", fmt.Errorf("OpenAI APIからのレスポンスが空です")

@@ -4,7 +4,8 @@
 
 app:
   output_dir: "./out"
-  log_level: "info"  # debug | info | warn | error
+  log_level: "info" # debug | info | warn | error
+  timezone: "Asia/Tokyo" # タイムゾーン（"Local" でシステム設定を使用）
 
 slack:
   # 環境変数名を指定（実際のトークンは .env に記載）
@@ -28,9 +29,9 @@ slack:
       - "ありがとうございます"
 
   # Slack投稿設定（オプション）
-  post_enabled: false            # true にすると自動投稿が有効になります
-  post_channel: ""               # ブリーフィング投稿先チャンネルID（例: C01234567）
-  upload_audio: false            # true にすると音声ファイルも添付します
+  post_enabled: false # true にすると自動投稿が有効になります
+  post_channel: "" # ブリーフィング投稿先チャンネルID（例: C01234567）
+  upload_audio: false # true にすると音声ファイルも添付します
 
 notion:
   # 環境変数名を指定
@@ -41,16 +42,19 @@ notion:
     - id: "db-uuid-xxxx"
       name: "Design Docs"
       properties: ["Status", "Tag", "Project"]
+      max_content_blocks: 10 # ページ本文を10ブロック取得
     - id: "db-uuid-yyyy"
       name: "Task Board"
       properties: ["Status", "Assignee", "Priority"]
+      max_content_blocks: 0 # 本文取得しない（プロパティのみ）
+    # max_content_blocks を省略するとデフォルト5ブロック取得
 
 # GitHub連携（オプション）
 github:
   enabled: false
   token_env: "VOICE_BRIEF_GITHUB_TOKEN"
-  username: "your-username"  # フィルタ用（自分のアクティビティのみ取得）
-  repositories:  # 監視対象リポジトリ（owner/repo形式）
+  username: "your-username" # フィルタ用（自分のアクティビティのみ取得）
+  repositories: # 監視対象リポジトリ（owner/repo形式）
     - "owner/repository-name"
     # - "your-org/another-repo"
 
@@ -63,7 +67,7 @@ brief:
 
 # 要約エンジン設定
 summarizer:
-  provider: "rule"  # "rule" | "gemini" | "openai"
+  provider: "rule" # "rule" | "gemini" | "openai"
   # gemini_model: "gemini-2.0-flash-exp"  # providerがgeminiの場合のみ
   # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini使用時の環境変数名
   # openai_model: "gpt-4o-mini"  # providerがopenaiの場合（gpt-4o-mini, gpt-4o, gpt-4-turbo等）
@@ -71,10 +75,10 @@ summarizer:
 
 # 音声合成設定
 tts:
-  provider: "say"  # "say" (macOS) | "sapi" (Windows) | "google_tts" | "openai_tts"
-  voice: "Kyoko"   # say/sapi: Kyoko, Otoya / google_tts: ja-JP-Neural2-B / openai_tts: alloy, echo, fable, onyx, nova, shimmer
-  rate: 1.1        # 読み上げ速度（倍速）
-  format: "m4a"    # say: aiff, m4a, mp3 / sapi: wav, mp3 / google_tts: mp3, ogg, wav / openai_tts: mp3, opus, aac, flac
+  provider: "say" # "say" (macOS) | "sapi" (Windows) | "google_tts" | "openai_tts"
+  voice: "Kyoko" # say/sapi: Kyoko, Otoya / google_tts: ja-JP-Neural2-B / openai_tts: alloy, echo, fable, onyx, nova, shimmer
+  rate: 1.1 # 読み上げ速度（倍速）
+  format: "m4a" # say: aiff, m4a, mp3 / sapi: wav, mp3 / google_tts: mp3, ogg, wav / openai_tts: mp3, opus, aac, flac
   # google_credentials_json_env: "GOOGLE_APPLICATION_CREDENTIALS_JSON"  # Google TTS使用時の認証情報環境変数名
 
 # 実行時設定

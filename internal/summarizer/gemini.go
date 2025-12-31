@@ -125,6 +125,15 @@ func (s *GeminiSummarizer) generateBriefWithGemini(brief *model.Brief, briefType
 	// プロンプトを構築
 	prompt := s.buildPrompt(brief, briefType)
 
+	// API呼び出しログ
+	fmt.Printf("🤖 Gemini API 呼び出し開始: model=%s, events=%d, prompt_length=%d\n",
+		s.model, len(brief.Items), len(prompt))
+	fmt.Println("─────────────────────────────────────────")
+	fmt.Println("📝 プロンプト:")
+	fmt.Println(prompt)
+	fmt.Println("─────────────────────────────────────────")
+	startTime := time.Now()
+
 	// Gemini APIを呼び出し
 	genModel := s.client.GenerativeModel(s.model)
 
@@ -134,13 +143,28 @@ func (s *GeminiSummarizer) generateBriefWithGemini(brief *model.Brief, briefType
 	genModel.SetTopK(40)
 
 	resp, err := genModel.GenerateContent(ctx, genai.Text(prompt))
+	elapsed := time.Since(startTime)
+
 	if err != nil {
+		fmt.Printf("❌ Gemini API エラー: %v (elapsed=%v)\n", err, elapsed)
 		return "", "", fmt.Errorf("Gemini API 呼び出しエラー: %w", err)
 	}
 
 	// レスポンスを解析
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+		fmt.Printf("❌ Gemini API レスポンスが空 (elapsed=%v)\n", elapsed)
 		return "", "", fmt.Errorf("Gemini API からの応答が空です")
+	}
+
+	// トークン使用量をログ出力
+	if resp.UsageMetadata != nil {
+		fmt.Printf("📊 Gemini API 完了: prompt_tokens=%d, response_tokens=%d, total_tokens=%d, elapsed=%v\n",
+			resp.UsageMetadata.PromptTokenCount,
+			resp.UsageMetadata.CandidatesTokenCount,
+			resp.UsageMetadata.TotalTokenCount,
+			elapsed)
+	} else {
+		fmt.Printf("📊 Gemini API 完了: elapsed=%v\n", elapsed)
 	}
 
 	// テキスト部分を取得
