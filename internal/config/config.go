@@ -11,14 +11,15 @@ import (
 
 // Config はアプリケーション全体の設定を保持します
 type Config struct {
-	App        AppConfig        `yaml:"app"`
-	Slack      SlackConfig      `yaml:"slack"`
-	Notion     NotionConfig     `yaml:"notion"`
-	GitHub     GitHubConfig     `yaml:"github"`
-	Brief      BriefConfig      `yaml:"brief"`
-	Summarizer SummarizerConfig `yaml:"summarizer"`
-	TTS        TTSConfig        `yaml:"tts"`
-	Runtime    RuntimeConfig    `yaml:"runtime"`
+	App         AppConfig         `yaml:"app"`
+	Slack       SlackConfig       `yaml:"slack"`
+	Notion      NotionConfig      `yaml:"notion"`
+	GitHub      GitHubConfig      `yaml:"github"`
+	Brief       BriefConfig       `yaml:"brief"`
+	Categorizer CategorizerConfig `yaml:"categorizer"`
+	Summarizer  SummarizerConfig  `yaml:"summarizer"`
+	TTS         TTSConfig         `yaml:"tts"`
+	Runtime     RuntimeConfig     `yaml:"runtime"`
 }
 
 // AppConfig はアプリケーション基本設定
@@ -95,6 +96,15 @@ type BriefConfig struct {
 	WeeklyDays       int `yaml:"weekly_days"`
 	MaxItemsDaily    int `yaml:"max_items_daily"`
 	MaxItemsWeekly   int `yaml:"max_items_weekly"`
+}
+
+// CategorizerConfig はカテゴリ判定エンジン設定
+type CategorizerConfig struct {
+	Provider     string `yaml:"provider"`            // "rule" or "gemini" or "openai"
+	GeminiModel  string `yaml:"gemini_model"`        // Gemini使用時のモデル
+	GeminiAPIKey string `yaml:"gemini_api_key_env"`  // 環境変数名
+	OpenAIModel  string `yaml:"openai_model"`        // OpenAI使用時のモデル
+	OpenAIAPIKey string `yaml:"openai_api_key_env"`  // 環境変数名
 }
 
 // SummarizerConfig は要約エンジン設定
@@ -193,6 +203,22 @@ func (c *Config) loadTokensFromEnv() error {
 		}
 	}
 
+	// Categorizer Gemini API Key（オプション）
+	if c.Categorizer.Provider == "gemini" && c.Categorizer.GeminiAPIKey != "" {
+		apiKey := os.Getenv(c.Categorizer.GeminiAPIKey)
+		if apiKey == "" {
+			return fmt.Errorf("環境変数 %s が設定されていません（Gemini Categorizer使用時は必須）", c.Categorizer.GeminiAPIKey)
+		}
+	}
+
+	// Categorizer OpenAI API Key（オプション）
+	if c.Categorizer.Provider == "openai" && c.Categorizer.OpenAIAPIKey != "" {
+		apiKey := os.Getenv(c.Categorizer.OpenAIAPIKey)
+		if apiKey == "" {
+			return fmt.Errorf("環境変数 %s が設定されていません（OpenAI Categorizer使用時は必須）", c.Categorizer.OpenAIAPIKey)
+		}
+	}
+
 	// OpenAI API Key for TTS（オプション）
 	if c.TTS.Provider == "openai_tts" {
 		apiKey := os.Getenv("VOICE_BRIEF_OPENAI_API_KEY")
@@ -273,6 +299,23 @@ func (c *Config) Validate() error {
 	}
 	if c.Brief.MaxItemsWeekly <= 0 {
 		c.Brief.MaxItemsWeekly = 25 // デフォルト値
+	}
+
+	// Categorizer設定の検証
+	if c.Categorizer.Provider == "" {
+		c.Categorizer.Provider = "rule" // デフォルト値
+	}
+	validCategorizerProviders := []string{"rule", "gemini", "openai"}
+	if !contains(validCategorizerProviders, c.Categorizer.Provider) {
+		return fmt.Errorf("categorizer.provider は rule, gemini, openai のいずれかである必要があります")
+	}
+	// Gemini使用時のデフォルトモデル
+	if c.Categorizer.Provider == "gemini" && c.Categorizer.GeminiModel == "" {
+		c.Categorizer.GeminiModel = "gemini-2.0-flash-exp" // デフォルト値
+	}
+	// OpenAI使用時のデフォルトモデル
+	if c.Categorizer.Provider == "openai" && c.Categorizer.OpenAIModel == "" {
+		c.Categorizer.OpenAIModel = "gpt-4o-mini" // デフォルト値（コスト効率重視）
 	}
 
 	// Summarizer設定の検証

@@ -7,7 +7,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/masumomo/voice-brief/internal/categorizer"
 	"github.com/masumomo/voice-brief/internal/config"
 	"github.com/masumomo/voice-brief/internal/model"
 )
@@ -23,7 +22,6 @@ type MultiFetcher struct {
 	slackFetcher  *SlackFetcher
 	notionFetcher *NotionFetcher
 	githubFetcher *GitHubFetcher
-	categorizer   categorizer.Categorizer
 }
 
 // NewMultiFetcher は新しいMultiFetcherを作成します
@@ -32,7 +30,6 @@ func NewMultiFetcher(cfg *config.Config) *MultiFetcher {
 		config:        cfg,
 		slackFetcher:  NewSlackFetcher(&cfg.Slack),
 		notionFetcher: NewNotionFetcher(&cfg.Notion),
-		categorizer:   categorizer.NewRuleCategorizer(),
 	}
 
 	// GitHub Fetcherは有効な場合のみ初期化
@@ -41,11 +38,6 @@ func NewMultiFetcher(cfg *config.Config) *MultiFetcher {
 	}
 
 	return mf
-}
-
-// SetCategorizer はCategorizerを設定します（将来のLLM対応用）
-func (f *MultiFetcher) SetCategorizer(c categorizer.Categorizer) {
-	f.categorizer = c
 }
 
 // Fetch はすべてのソースから並列でイベントを取得します
@@ -126,11 +118,6 @@ func (f *MultiFetcher) Fetch(ctx context.Context, since time.Time) (model.Events
 	// 少なくとも1つのソースから取得できていればOK
 	if len(allEvents) == 0 && hasError {
 		return nil, fmt.Errorf("すべてのソースからの取得に失敗しました")
-	}
-
-	// カテゴリ判定
-	if f.categorizer != nil {
-		f.categorizer.CategorizeAll(allEvents)
 	}
 
 	fmt.Printf("✓ 合計 %d 件のイベントを取得しました\n", len(allEvents))

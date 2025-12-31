@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/masumomo/voice-brief/internal/categorizer"
 	"github.com/masumomo/voice-brief/internal/config"
 	"github.com/masumomo/voice-brief/internal/fetcher"
 	"github.com/masumomo/voice-brief/internal/logger"
@@ -199,7 +200,7 @@ func handleRunCommand() {
 	}
 
 	// 1. データ取得
-	fmt.Printf("📥 Step 1/4: データ取得中... [%s]\n", periodStr)
+	fmt.Printf("📥 Step 1/5: データ取得中... [%s]\n", periodStr)
 	log.Debug("Starting data fetch", map[string]interface{}{
 		"brief_type": string(briefType),
 		"since":      since.Format("2006-01-02 15:04:05"),
@@ -226,8 +227,14 @@ func handleRunCommand() {
 		}
 	}
 
-	// 2. 要約生成
-	fmt.Println("📝 Step 2/4: ブリーフィング要約生成中...")
+	// 2. カテゴリ判定
+	fmt.Println("🏷️  Step 2/5: カテゴリ判定中...")
+	cat := createCategorizer(&cfg.Categorizer)
+	cat.CategorizeAll(events)
+	fmt.Printf("✓ %d 件のイベントをカテゴリ分類\n\n", len(events))
+
+	// 3. 要約生成
+	fmt.Println("📝 Step 3/5: ブリーフィング要約生成中...")
 	log.Debug("Generating brief summary")
 	brief, err := generateBrief(cfg, events, briefType)
 	if err != nil {
@@ -242,8 +249,8 @@ func handleRunCommand() {
 	})
 	fmt.Printf("✓ 要約生成完了 (対象: %d 件)\n\n", brief.GetEventCount())
 
-	// 3. ファイル出力（Markdown + Script + Events）
-	fmt.Println("💾 Step 3/4: ファイル保存中...")
+	// 4. ファイル出力（Markdown + Script + Events）
+	fmt.Println("💾 Step 4/5: ファイル保存中...")
 	markdownPath, scriptPath, err := saveMarkdown(cfg.App.OutputDir, brief)
 	if err != nil {
 		fmt.Printf("❌ エラー: ファイル保存に失敗: %v\n", err)
@@ -261,17 +268,17 @@ func handleRunCommand() {
 	}
 	fmt.Println()
 
-	// 4. 音声生成
+	// 5. 音声生成
 	if dryRun {
 		log.Info("Skipping audio generation (dry-run mode)")
-		fmt.Println("🔇 Step 4/4: 音声生成スキップ (--dry-run)")
+		fmt.Println("🔇 Step 5/5: 音声生成スキップ (--dry-run)")
 		fmt.Printf("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
 		fmt.Printf("📄 Markdown: %s\n", markdownPath)
 		fmt.Printf("📝 Script: %s\n", scriptPath)
 		return
 	}
 
-	fmt.Println("🎤 Step 4/4: 音声ファイル生成中...")
+	fmt.Println("🎤 Step 5/5: 音声ファイル生成中...")
 	log.Debug("Generating audio file")
 	audioPath, err := generateAudio(ctx, cfg, brief, briefType)
 	if err != nil {
@@ -286,9 +293,9 @@ func handleRunCommand() {
 	})
 	fmt.Printf("✓ 音声を生成: %s\n\n", audioPath)
 
-	// 5. Slack投稿（オプション）
+	// Slack投稿（オプション）
 	if cfg.Slack.PostEnabled {
-		fmt.Println("\n📤 Step 5/5: Slackに投稿中...")
+		fmt.Println("\n📤 Slackに投稿中...")
 		log.Debug("Uploading to Slack")
 
 		// Briefに音声パスを設定
@@ -341,6 +348,22 @@ func fetchEvents(ctx context.Context, cfg *config.Config, since, until time.Time
 	}
 
 	return events, nil
+}
+
+// createCategorizer は設定に基づいてCategorizerを作成します
+func createCategorizer(cfg *config.CategorizerConfig) categorizer.Categorizer {
+	switch cfg.Provider {
+	case "gemini":
+		// TODO: GeminiCategorizerを実装後に有効化
+		fmt.Println("⚠️  警告: Gemini Categorizerは未実装です。ルールベースで代替します。")
+		return categorizer.NewRuleCategorizer()
+	case "openai":
+		// TODO: OpenAICategorizerを実装後に有効化
+		fmt.Println("⚠️  警告: OpenAI Categorizerは未実装です。ルールベースで代替します。")
+		return categorizer.NewRuleCategorizer()
+	default:
+		return categorizer.NewRuleCategorizer()
+	}
 }
 
 // generateBrief はブリーフィングを生成します
@@ -697,7 +720,8 @@ func handleConfigCommand(subcommand string) {
 	fmt.Printf("✓ Daily期間: %d時間\n", cfg.Brief.DailyWindowHours)
 	fmt.Printf("✓ Weekly期間: %d日\n", cfg.Brief.WeeklyDays)
 
-	// Summarizer/TTS設定の確認
+	// Categorizer/Summarizer/TTS設定の確認
+	fmt.Printf("✓ カテゴリ判定: %s\n", cfg.Categorizer.Provider)
 	fmt.Printf("✓ 要約エンジン: %s\n", cfg.Summarizer.Provider)
 	fmt.Printf("✓ 音声合成: %s (音声: %s, 速度: %.1fx)\n", cfg.TTS.Provider, cfg.TTS.Voice, cfg.TTS.Rate)
 
