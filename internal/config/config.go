@@ -16,9 +16,9 @@ type Config struct {
 	Notion          NotionConfig          `yaml:"notion"`
 	GitHub          GitHubConfig          `yaml:"github"`
 	Brief           BriefConfig           `yaml:"brief"`
-	Categorizer      CategorizerConfig      `yaml:"categorizer"`
-	EventSummarizer  EventSummarizerConfig  `yaml:"event_summarizer"`
-	BriefSummarizer  BriefSummarizerConfig  `yaml:"brief_summarizer"`
+	Categorizer     CategorizerConfig     `yaml:"categorizer"`
+	EventSummarizer EventSummarizerConfig `yaml:"event_summarizer"`
+	BriefSummarizer BriefSummarizerConfig `yaml:"brief_summarizer"`
 	TTS             TTSConfig             `yaml:"tts"`
 	Runtime         RuntimeConfig         `yaml:"runtime"`
 }

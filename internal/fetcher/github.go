@@ -8,15 +8,13 @@ import (
 
 	"github.com/google/go-github/v57/github"
 	"github.com/masumomo/voice-brief/internal/config"
-	"github.com/masumomo/voice-brief/internal/filter"
 	"github.com/masumomo/voice-brief/internal/model"
 )
 
 // GitHubFetcher はGitHubからイベントを取得します
 type GitHubFetcher struct {
-	client     *github.Client
-	config     *config.GitHubConfig
-	calculator filter.ImportanceCalculator
+	client *github.Client
+	config *config.GitHubConfig
 }
 
 // NewGitHubFetcher は新しいGitHubFetcherを作成します
@@ -27,9 +25,8 @@ func NewGitHubFetcher(cfg *config.GitHubConfig) *GitHubFetcher {
 	}
 
 	return &GitHubFetcher{
-		client:     client,
-		config:     cfg,
-		calculator: filter.NewRuleBasedCalculator(),
+		client: client,
+		config: cfg,
 	}
 }
 
@@ -67,9 +64,6 @@ func (f *GitHubFetcher) Fetch(ctx context.Context, since time.Time) (model.Event
 			allEvents = append(allEvents, issues...)
 		}
 	}
-
-	// 重要度計算
-	filter.CalculateAll(allEvents, f.calculator)
 
 	return allEvents, nil
 }

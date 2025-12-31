@@ -175,17 +175,32 @@ type Event struct {
 }
 ```
 
-#### 3.3.2 Importance計算（ルールベース・v1.0）
+#### 3.3.2 Importance計算（特徴量ベース）
 
-初期実装では以下の単純ルールで計算:
+20個の特徴量を抽出し、重み付け線形結合でスコア（0-100）を計算:
 
-- 特定キーワード含む（「緊急」「障害」等）: +30
-- メンション含む: +20
-- スレッド返信が多い（5件以上）: +10
-- 短文（10文字未満）: -20
-- Bot投稿: -10
+**特徴量一覧:**
 
-v1.1+でML/LLMベースの重要度判定を追加検討。
+| カテゴリ | 特徴量 | 説明 |
+| --- | --- | --- |
+| テキスト | TextLength | 本文の長さ（シグモイド正規化） |
+| テキスト | HasMention | @メンション有無 |
+| テキスト | HasQuestion | 疑問文か（?含む） |
+| テキスト | HasURL | URL含有 |
+| テキスト | KeywordScore | 重要キーワードスコア |
+| エンゲージメント | CommentCount | コメント数 |
+| エンゲージメント | UniqueCommenters | ユニーク投稿者数 |
+| カテゴリ | IsIncident | Incidentカテゴリ（+30） |
+| カテゴリ | IsDev/IsBiz/IsOps | 各カテゴリ判定 |
+| ソース | IsSlack/IsNotion/IsGitHub | ソース判定 |
+| 時間 | IsBusinessHours | 営業時間内か |
+
+**主要な重み:**
+
+- Incident: +30（障害は最重要）
+- KeywordScore: +20（緊急/障害等のキーワード）
+- HasMention: +15（@メンション）
+- CommentCount: +15（議論が活発）
 
 ### 3.4 要約・原稿生成（Summarizer）
 
@@ -365,9 +380,15 @@ brief:
   max_items_daily: 8
   max_items_weekly: 25
 
-summarizer:
-  provider: "rule"  # "rule" | "openai"
-  # openai_model: "gpt-4"  # providerがopenaiの場合
+categorizer:
+  provider: "rule"  # "rule" | "gemini" | "openai"
+
+event_summarizer:
+  provider: "rule"  # "rule" | "gemini" | "openai"
+  max_summary_len: 200
+
+brief_summarizer:
+  provider: "rule"  # "rule" | "gemini" | "openai"
 
 tts:
   provider: "say"  # "say" | "openai_tts"
@@ -446,12 +467,24 @@ voice-brief/
 │   │   ├── slack.go
 │   │   ├── notion.go
 │   │   └── github.go
-│   ├── filter/                  # イベントフィルタリング
-│   │   └── importance.go
+│   ├── importance/              # 重要度計算
+│   │   ├── importance.go        # ルールベース計算
+│   │   └── feature.go           # 特徴量ベース計算
+│   ├── categorizer/             # カテゴリ判定
+│   │   ├── categorizer.go       # Interface
+│   │   ├── rule.go              # ルールベース
+│   │   ├── gemini.go            # Gemini API
+│   │   └── openai.go            # OpenAI API
 │   ├── summarizer/              # 要約・原稿生成
 │   │   ├── summarizer.go        # Interface
-│   │   ├── rule.go              # Rule-based
-│   │   └── openai.go            # LLM-based (オプション)
+│   │   ├── brief/               # ブリーフィング要約
+│   │   │   ├── rule.go
+│   │   │   ├── gemini.go
+│   │   │   └── openai.go
+│   │   └── event/               # イベント要約
+│   │       ├── rule.go
+│   │       ├── gemini.go
+│   │       └── openai.go
 │   ├── tts/                     # 音声合成
 │   │   ├── tts.go               # Interface
 │   │   ├── say.go               # macOS say
@@ -548,12 +581,15 @@ files:write            # 音声ファイル添付（オプション）
 
 詳細は`Roadmap.md`を参照。
 
-| バージョン | 主な機能 |
-| --- | --- |
-| **v1.0** | Daily/Weekly実行、Rule-based要約、macOS say |
-| **v1.1** | Slackスレッド対応、Notionプロパティフィルタ強化、ML重要度判定 |
-| **v1.2** | OpenAI要約・TTS統合、iPhoneショートカット連携 |
-| **v2.0** | マルチプラットフォーム対応（Linux/Windows）、Web UI |
+| バージョン | 主な機能 | 状態 |
+| --- | --- | --- |
+| **v1.0** | Daily/Weekly実行、Rule-based要約、macOS say | ✅ |
+| **v1.1** | Slackスレッド対応、Notionプロパティフィルタ強化 | ✅ |
+| **v1.2** | Gemini統合（要約 + TTS） | ✅ |
+| **v2.0** | Windows対応（SAPI TTS） | ✅ |
+| **v2.1** | OpenAI統合（要約 + TTS） | ✅ |
+| **v2.2** | GitHub統合（3ソース並列取得） | ✅ |
+| **v2.3** | ML重要度計算（特徴量ベース） | ✅ |
 
 ## 10. 制約事項・前提条件
 
@@ -565,9 +601,9 @@ files:write            # 音声ファイル添付（オプション）
 
 ### 10.2 制限事項
 
-- v1.0ではNotionページ本文は取得しない（タイトル・プロパティのみ）
-- Slackスレッド取得は簡易実装（全返信ではなく親メッセージ中心）
-- GitHub連携は初期バージョンではオプション扱い
+- Linux対応はスコープアウト
+- Web UIはスコープアウト
+- iPhoneショートカット連携はスコープアウト
 
 ## 11. 用語集
 
@@ -592,4 +628,7 @@ files:write            # 音声ファイル添付（オプション）
 
 **更新履歴:**
 
-- 2025-01-XX: v1.0仕様策定（本ドキュメント）
+- 2025-12-31: v2.3 ML重要度計算（特徴量ベース）追加
+- 2025-12-30: v2.2 GitHub統合追加
+- 2025-12-29: v2.1 OpenAI統合追加
+- 2025-12-28: v2.0 Windows対応追加

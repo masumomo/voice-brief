@@ -65,6 +65,9 @@ brief:
   max_items_daily: 8
   max_items_weekly: 25
 
+# 重要度計算エンジン設定（特徴量ベース）
+# 20個の特徴量（テキスト長、コメント数、カテゴリ等）を使用して重要度を計算
+
 # カテゴリ判定エンジン設定
 categorizer:
   provider: "rule" # "rule" | "gemini" | "openai"

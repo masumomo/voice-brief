@@ -1,6 +1,7 @@
-package filter
+package importance
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/masumomo/voice-brief/internal/model"
@@ -157,4 +158,20 @@ func FilterShortMessages(events model.Events, minLength int) model.Events {
 	}
 
 	return filtered
+}
+
+// TopK は重要度上位K件のイベントを返します
+// eventsは重要度計算済みである必要があります
+// k <= 0 の場合は全件返します
+func TopK(events model.Events, k int) model.Events {
+	if k <= 0 || len(events) <= k {
+		return events
+	}
+
+	// 重要度でソート（model.Events.Less()は降順）
+	sorted := make(model.Events, len(events))
+	copy(sorted, events)
+	sort.Sort(sorted)
+
+	return sorted[:k]
 }

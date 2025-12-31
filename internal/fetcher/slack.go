@@ -8,24 +8,22 @@ import (
 	"time"
 
 	"github.com/masumomo/voice-brief/internal/config"
-	"github.com/masumomo/voice-brief/internal/filter"
+	"github.com/masumomo/voice-brief/internal/importance"
 	"github.com/masumomo/voice-brief/internal/model"
 	"github.com/slack-go/slack"
 )
 
 // SlackFetcher はSlackからイベントを取得します
 type SlackFetcher struct {
-	client     *slack.Client
-	config     *config.SlackConfig
-	calculator filter.ImportanceCalculator
+	client *slack.Client
+	config *config.SlackConfig
 }
 
 // NewSlackFetcher は新しいSlackFetcherを作成します
 func NewSlackFetcher(cfg *config.SlackConfig) *SlackFetcher {
 	return &SlackFetcher{
-		client:     slack.New(cfg.Token),
-		config:     cfg,
-		calculator: filter.NewRuleBasedCalculator(),
+		client: slack.New(cfg.Token),
+		config: cfg,
 	}
 }
 
@@ -54,9 +52,6 @@ func (f *SlackFetcher) Fetch(ctx context.Context, since time.Time) (model.Events
 
 	// フィルタリング
 	allEvents = f.applyFilters(allEvents)
-
-	// 重要度計算
-	filter.CalculateAll(allEvents, f.calculator)
 
 	return allEvents, nil
 }
@@ -166,12 +161,12 @@ func (f *SlackFetcher) getUserName(userID string) string {
 func (f *SlackFetcher) applyFilters(events model.Events) model.Events {
 	// キーワード除外
 	if len(f.config.Filters.ExcludeKeywords) > 0 {
-		events = filter.FilterByKeywords(events, f.config.Filters.ExcludeKeywords)
+		events = importance.FilterByKeywords(events, f.config.Filters.ExcludeKeywords)
 	}
 
 	// 短文除外
 	if f.config.Filters.ExcludeShortMessages && f.config.Filters.MinLength > 0 {
-		events = filter.FilterShortMessages(events, f.config.Filters.MinLength)
+		events = importance.FilterShortMessages(events, f.config.Filters.MinLength)
 	}
 
 	return events

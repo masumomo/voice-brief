@@ -14,6 +14,7 @@ import (
 	"github.com/masumomo/voice-brief/internal/categorizer"
 	"github.com/masumomo/voice-brief/internal/config"
 	"github.com/masumomo/voice-brief/internal/fetcher"
+	"github.com/masumomo/voice-brief/internal/importance"
 	"github.com/masumomo/voice-brief/internal/logger"
 	"github.com/masumomo/voice-brief/internal/model"
 	"github.com/masumomo/voice-brief/internal/summarizer"
@@ -203,7 +204,7 @@ func handleRunCommand() {
 	}
 
 	// 1. データ取得
-	fmt.Printf("📥 Step 1/6: データ取得中... [%s]\n", periodStr)
+	fmt.Printf("📥 Step 1/7: データ取得中... [%s]\n", periodStr)
 	log.Debug("Starting data fetch", map[string]interface{}{
 		"brief_type": string(briefType),
 		"since":      since.Format("2006-01-02 15:04:05"),
@@ -230,14 +231,23 @@ func handleRunCommand() {
 		}
 	}
 
-	// 2. カテゴリ判定
-	fmt.Println("🏷️  Step 2/6: カテゴリ判定中...")
+	// 2. 重要度計算（特徴量ベース）
+	fmt.Println("📊 Step 2/7: 重要度計算中...")
+	calculator := importance.NewFeatureBasedCalculator(nil)
+	importance.CalculateAll(events, calculator)
+	log.Info("Importance calculated", map[string]interface{}{
+		"method": "feature-based",
+	})
+	fmt.Printf("✓ %d 件のイベントの重要度を計算\n\n", len(events))
+
+	// 3. カテゴリ判定
+	fmt.Println("🏷️  Step 3/7: カテゴリ判定中...")
 	cat := createCategorizer(&cfg.Categorizer)
 	cat.CategorizeAll(events)
 	fmt.Printf("✓ %d 件のイベントをカテゴリ分類\n\n", len(events))
 
-	// 3. イベント要約
-	fmt.Println("📄 Step 3/6: イベント要約生成中...")
+	// 4. イベント要約
+	fmt.Println("📄 Step 4/7: イベント要約生成中...")
 	eventSum := createEventSummarizer(&cfg.EventSummarizer)
 	if err := eventSum.SummarizeAll(events); err != nil {
 		log.Warn("イベント要約の一部に失敗しました", map[string]interface{}{
@@ -246,8 +256,8 @@ func handleRunCommand() {
 	}
 	fmt.Printf("✓ %d 件のイベントを要約\n\n", len(events))
 
-	// 4. ブリーフィング要約生成
-	fmt.Println("📝 Step 4/6: ブリーフィング要約生成中...")
+	// 5. ブリーフィング要約生成
+	fmt.Println("📝 Step 5/7: ブリーフィング要約生成中...")
 	log.Debug("Generating brief summary")
 	brief, err := generateBrief(cfg, events, briefType)
 	if err != nil {
@@ -262,8 +272,8 @@ func handleRunCommand() {
 	})
 	fmt.Printf("✓ 要約生成完了 (対象: %d 件)\n\n", brief.GetEventCount())
 
-	// 5. ファイル出力（Markdown + Script + Events）
-	fmt.Println("💾 Step 5/6: ファイル保存中...")
+	// 6. ファイル出力（Markdown + Script + Events）
+	fmt.Println("💾 Step 6/7: ファイル保存中...")
 	markdownPath, scriptPath, err := saveMarkdown(cfg.App.OutputDir, brief)
 	if err != nil {
 		fmt.Printf("❌ エラー: ファイル保存に失敗: %v\n", err)
@@ -281,17 +291,17 @@ func handleRunCommand() {
 	}
 	fmt.Println()
 
-	// 6. 音声生成
+	// 7. 音声生成
 	if dryRun {
 		log.Info("Skipping audio generation (dry-run mode)")
-		fmt.Println("🔇 Step 6/6: 音声生成スキップ (--dry-run)")
+		fmt.Println("🔇 Step 7/7: 音声生成スキップ (--dry-run)")
 		fmt.Printf("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
 		fmt.Printf("📄 Markdown: %s\n", markdownPath)
 		fmt.Printf("📝 Script: %s\n", scriptPath)
 		return
 	}
 
-	fmt.Println("🎤 Step 6/6: 音声ファイル生成中...")
+	fmt.Println("🎤 Step 7/7: 音声ファイル生成中...")
 	log.Debug("Generating audio file")
 	audioPath, err := generateAudio(ctx, cfg, brief, briefType)
 	if err != nil {
@@ -804,6 +814,7 @@ func handleConfigCommand(subcommand string) {
 	fmt.Printf("✓ Weekly期間: %d日\n", cfg.Brief.WeeklyDays)
 
 	// Categorizer/Summarizer/TTS設定の確認
+	fmt.Println("✓ 重要度計算: feature-based (20特徴量)")
 	fmt.Printf("✓ カテゴリ判定: %s\n", cfg.Categorizer.Provider)
 	fmt.Printf("✓ イベント要約: %s (最大%d文字)\n", cfg.EventSummarizer.Provider, cfg.EventSummarizer.MaxSummaryLen)
 	fmt.Printf("✓ ブリーフィング要約: %s\n", cfg.BriefSummarizer.Provider)

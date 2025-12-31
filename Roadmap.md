@@ -692,6 +692,7 @@ cost := sum.EstimateCost()
 ```
 
 **コスト目安:**
+
 - Daily (gpt-4o-mini): $0.001-0.003/回
 - Weekly (gpt-4o-mini): $0.003-0.008/回
 
@@ -722,6 +723,7 @@ tts:
 ```
 
 **コスト目安:**
+
 - Daily (tts-1): $0.03-0.06/回
 - Weekly (tts-1): $0.08-0.15/回
 
@@ -822,6 +824,94 @@ voicebrief run --daily
 
 ---
 
+## Phase 9: 特徴量ベース重要度計算（v2.3 - 1日） ✅
+
+### 目標
+
+特徴量ベースの機械学習的アプローチによる重要度計算の実装
+
+### タスク
+
+- [x] `internal/importance/feature.go`実装（287行）
+  - 20個の特徴量を抽出（テキスト、エンゲージメント、カテゴリ、ソース、時間）
+  - シグモイド関数による正規化
+  - 重み付け線形結合でスコア計算
+  - 0-100の範囲にクリップ
+
+- [x] アーキテクチャ改善
+  - Fetcher（slack/notion/github）から重要度計算を分離
+  - main.goで一元管理（関心の分離）
+  - 常にFeatureBasedCalculatorを使用（rule-basedは内部的に残すが設定不要）
+
+- [x] ユーティリティ関数追加
+  - `TopK(events, k)` - 重要度上位K件を取得
+  - `GetFeatureVector(event)` - 特徴量ベクトル取得
+  - `GetFeatureNames()` - 特徴量名一覧取得
+
+- [x] テスト追加
+  - FeatureBasedCalculatorの8つのテストケース
+  - TopK関数の5つのテストケース
+
+**成果物:**
+
+- [x] FeatureBasedCalculator実装
+- [x] TopK関数実装
+- [x] テストカバレッジ維持（22テスト）
+
+**特徴量一覧:**
+
+| カテゴリ | 特徴量 | 説明 |
+| --- | --- | --- |
+| テキスト | TextLength | 本文の長さ（正規化） |
+| テキスト | TitleLength | タイトルの長さ（正規化） |
+| テキスト | HasMention | @メンション有無 |
+| テキスト | HasQuestion | 疑問文か |
+| テキスト | HasExclamation | 強調表現か |
+| テキスト | HasURL | URL含有 |
+| テキスト | KeywordScore | 重要キーワードスコア |
+| エンゲージメント | CommentCount | コメント数（正規化） |
+| エンゲージメント | UniqueCommenters | ユニーク投稿者数 |
+| エンゲージメント | TotalCommentLen | コメント総文字数 |
+| カテゴリ | IsIncident | Incidentカテゴリか |
+| カテゴリ | IsDev | Devカテゴリか |
+| カテゴリ | IsBiz | Bizカテゴリか |
+| カテゴリ | IsOps | Opsカテゴリか |
+| ソース | IsSlack | Slackソースか |
+| ソース | IsNotion | Notionソースか |
+| ソース | IsGitHub | GitHubソースか |
+| 時間 | HourOfDay | 時間帯（正規化） |
+| 時間 | IsBusinessHours | 営業時間内か |
+| 時間 | IsWeekday | 平日か |
+
+**デフォルト重み設定:**
+
+```go
+IsIncident:       30.0,  // 障害は最重要
+KeywordScore:     20.0,  // キーワードマッチは重要
+HasMention:       15.0,  // メンションは重要
+CommentCount:     15.0,  // 議論が活発
+UniqueCommenters: 10.0,  // 多くの人が参加
+IsOps:            8.0,   // 運用は重要
+TextLength:       5.0,   // 長い投稿は重要な可能性
+HasQuestion:      5.0,   // 質問は対応必要
+Bias:             30.0,  // ベーススコア
+```
+
+**検証:**
+
+```bash
+# 設定確認
+voicebrief config check
+# ✓ 重要度計算: feature-based (20特徴量)
+
+# ブリーフィング生成
+voicebrief run --daily
+# 📊 Step 2/7: 重要度計算中...
+# ✓ 23 件のイベントの重要度を計算
+```
+
+---
+
 ## マイルストーン一覧
 
 | マイルストーン | 期間 | 主な成果物 |
@@ -836,6 +926,7 @@ voicebrief run --daily
 | **Phase 6 (v2.0)** | 3日 | Windows対応（SAPI TTS） | ✅ |
 | **Phase 7 (v2.1)** | 1週間 | OpenAI統合（Summarizer + TTS） | ✅ |
 | **Phase 8 (v2.2)** | 3日 | GitHub統合（3ソース並列取得） | ✅ |
+| **Phase 9 (v2.3)** | 1日 | ML重要度計算（特徴量ベース） | ✅ |
 
 ---
 
@@ -859,8 +950,9 @@ voicebrief run --daily
 
 - ✅ Gemini要約（無料枠活用）- Phase 5.1完了
 - ✅ Google Cloud TTS（音声品質向上）- Phase 5.2完了
-- OpenAI要約・TTS（高品質）- Phase 7予定
-- GitHub統合 - Phase 8予定
+- ✅ OpenAI要約・TTS（高品質）- Phase 7完了
+- ✅ GitHub統合 - Phase 8完了
+- ✅ 特徴量ベース重要度計算 - Phase 9完了
 
 ### Won't Have（スコープアウト）
 
@@ -972,22 +1064,34 @@ voicebrief run --daily --dry-run
 
 ## 次のアクション
 
-1. **Phase 0開始**: プロジェクトセットアップ
+Phase 0〜9 すべて完了！🎉
 
-   ```bash
-   mkdir voice-brief && cd voice-brief
-   go mod init github.com/yourusername/voice-brief
-   ```
+### 今後の改善候補
 
-2. **Phase 1.1開始**: Config実装
-   - `internal/config/config.go`を作成
-   - `config.example.yaml`を作成
+1. **カテゴリ判定の改善**
+   - OpenAI/Gemini Categorizerの精度向上
+   - カスタムカテゴリ対応
 
-3. **継続的に**:
-   - 各Phase完了後、動作確認
-   - README更新
-   - Git commit（コミットメッセージにPhase番号記載）
+2. **要約品質の向上**
+   - プロンプトエンジニアリング改善
+   - 日本語特化のチューニング
 
----
+3. **運用改善**
+   - コスト最適化（API使用量モニタリング）
+   - エラーリカバリー強化
 
-**このロードマップで進める準備ができたら、Phase 0のセットアップから始めましょう。**
+### 開発Tips
+
+```bash
+# ブリーフィング生成（昨日分）
+voicebrief run
+
+# 過去3日分
+voicebrief run --days 3
+
+# Dry-runで原稿のみ
+voicebrief run --dry-run
+
+# デバッグ
+voicebrief run --debug-dump --log-level debug
+```

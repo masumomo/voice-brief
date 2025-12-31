@@ -8,23 +8,20 @@ import (
 
 	"github.com/jomei/notionapi"
 	"github.com/masumomo/voice-brief/internal/config"
-	"github.com/masumomo/voice-brief/internal/filter"
 	"github.com/masumomo/voice-brief/internal/model"
 )
 
 // NotionFetcher はNotionからイベントを取得します
 type NotionFetcher struct {
-	client     *notionapi.Client
-	config     *config.NotionConfig
-	calculator filter.ImportanceCalculator
+	client *notionapi.Client
+	config *config.NotionConfig
 }
 
 // NewNotionFetcher は新しいNotionFetcherを作成します
 func NewNotionFetcher(cfg *config.NotionConfig) *NotionFetcher {
 	return &NotionFetcher{
-		client:     notionapi.NewClient(notionapi.Token(cfg.Token)),
-		config:     cfg,
-		calculator: filter.NewRuleBasedCalculator(),
+		client: notionapi.NewClient(notionapi.Token(cfg.Token)),
+		config: cfg,
 	}
 }
 
@@ -57,9 +54,6 @@ func (f *NotionFetcher) Fetch(ctx context.Context, since time.Time) (model.Event
 		}
 		allEvents = append(allEvents, events...)
 	}
-
-	// 重要度計算
-	filter.CalculateAll(allEvents, f.calculator)
 
 	return allEvents, nil
 }
