@@ -20,7 +20,7 @@ VoiceBriefは、SlackとNotionの更新情報を自動的に収集し、音声�
 ## 必要環境
 
 - macOS 12.0以降 または Windows 10/11
-- Go 1.21以降
+- Go 1.25.1以降
 - ffmpeg（オプション - 音声形式変換用）
 
 ```bash
@@ -49,6 +49,7 @@ make dev
 ```
 
 このコマンドで以下が自動実行されます:
+
 - 設定ファイルのコピー（`config.yaml`, `.env`）
 - 出力ディレクトリの作成
 - 依存パッケージのダウンロード
@@ -66,7 +67,7 @@ cp .env.example .env
 
 #### Slack Bot Token
 
-1. https://api.slack.com/apps にアクセス
+1. <https://api.slack.com/apps> にアクセス
 2. 「Create New App」→「From scratch」を選択
 3. アプリ名とワークスペースを指定して作成
 4. 「OAuth & Permissions」で以下のBot Token Scopesを追加:
@@ -84,7 +85,7 @@ VOICE_BRIEF_SLACK_TOKEN="xoxb-your-token-here"
 
 #### Notion Integration Token
 
-1. https://www.notion.so/my-integrations にアクセス
+1. <https://www.notion.so/my-integrations> にアクセス
 2. 「New integration」を作成
 3. Integration名を設定し、関連ワークスペースを選択
 4. 「Submit」で作成
@@ -95,13 +96,13 @@ VOICE_BRIEF_SLACK_TOKEN="xoxb-your-token-here"
 VOICE_BRIEF_NOTION_TOKEN="secret_your-token-here"
 ```
 
-7. 監視したいNotionデータベースで「・・・」→「Connections」→作成したIntegrationを追加
+1. 監視したいNotionデータベースで「・・・」→「Connections」→作成したIntegrationを追加
 
 #### Gemini API Key（オプション）
 
 AI要約機能を使用する場合は、Gemini API Keyが必要です。
 
-1. https://aistudio.google.com/app/apikey にアクセス
+1. <https://aistudio.google.com/app/apikey> にアクセス
 2. 「Create API Key」でAPIキーを作成
 3. `.env`ファイルに設定:
 
@@ -115,7 +116,7 @@ GEMINI_API_KEY="your-gemini-api-key-here"
 
 高品質な日本語音声合成（WaveNet）を使用する場合は、Google Cloud認証情報が必要です。
 
-1. https://console.cloud.google.com/ にアクセス
+1. <https://console.cloud.google.com/> にアクセス
 2. プロジェクトを作成（または既存のプロジェクトを選択）
 3. Cloud Text-to-Speech APIを有効化
 4. サービスアカウントキー（JSON）を作成してダウンロード
@@ -126,6 +127,7 @@ GOOGLE_APPLICATION_CREDENTIALS_JSON='{"type":"service_account",...}'
 ```
 
 **または、gcloud CLIで認証:**
+
 ```bash
 gcloud auth application-default login
 ```
@@ -136,7 +138,7 @@ gcloud auth application-default login
 
 高品質なAI要約または音声合成を使用する場合は、OpenAI API Keyが必要です。
 
-1. https://platform.openai.com/api-keys にアクセス
+1. <https://platform.openai.com/api-keys> にアクセス
 2. 「Create new secret key」でAPIキーを作成
 3. `.env`ファイルに追加：
 
@@ -154,6 +156,7 @@ OPENAI_API_KEY="sk-your-openai-key-here"
 | TTS | tts-1-hd | $0.06-0.12/回 | $0.15-0.30/回 |
 
 **月次コスト試算:**
+
 - Daily実行（毎日1回、gpt-4o-mini + tts-1）: 約 $1.2-2.7/月
 - Daily + Weekly実行（gpt-4o-mini + tts-1）: 約 $1.5-3.5/月
 
@@ -188,10 +191,12 @@ tts:
 ```
 
 **Channel IDの確認方法:**
+
 - Slackでチャンネルを右クリック→「Copy link」
 - URLの最後の部分（例: `C01234567`）がChannel ID
 
 **Database IDの確認方法:**
+
 - NotionでデータベースをFull pageで開く
 - URLの`?v=`より前の部分（32文字のハイフン区切り文字列）
 
@@ -280,6 +285,7 @@ voicebrief run --weekly  # Weekly Briefing（過去7日間）
 ```
 
 **オプション:**
+
 - `--config PATH`: 設定ファイルパス（デフォルト: `./config.yaml`）
 - `--out-dir PATH`: 出力ディレクトリ（デフォルト: `./out`）
 - `--dry-run`: 音声生成・投稿をスキップ（原稿のみ生成）
@@ -321,6 +327,7 @@ voicebrief version
 ```
 
 このスクリプトは以下を実行します:
+
 1. Daily実行用plistを`~/Library/LaunchAgents/`にコピー
 2. Weekly実行用plistを`~/Library/LaunchAgents/`にコピー
 3. launchdに登録（毎朝8:00実行）
@@ -392,6 +399,7 @@ cat out/debug/$(date +%Y-%m-%d)-raw.json | jq .
 **エラー:** `invalid_auth`
 
 **対処:**
+
 1. `.env`のトークンが正しいか確認
 2. Slack Appが対象ワークスペースにインストールされているか確認
 3. 必要なScopesが付与されているか確認
@@ -401,6 +409,7 @@ cat out/debug/$(date +%Y-%m-%d)-raw.json | jq .
 **エラー:** `unauthorized`
 
 **対処:**
+
 1. `.env`のトークンが正しいか確認
 2. 対象DatabaseにIntegrationが接続されているか確認
 3. Database IDが正しいか確認（32文字のハイフン区切り）
@@ -408,19 +417,20 @@ cat out/debug/$(date +%Y-%m-%d)-raw.json | jq .
 ### 音声が生成されない
 
 **対処:**
+
 1. `say`コマンドが利用可能か確認:
 
 ```bash
 say "テスト"
 ```
 
-2. ffmpegがインストールされているか確認（M4A出力時）:
+1. ffmpegがインストールされているか確認（M4A出力時）:
 
 ```bash
 ffmpeg -version
 ```
 
-3. `--dry-run`で原稿が生成されるか確認:
+1. `--dry-run`で原稿が生成されるか確認:
 
 ```bash
 ./voicebrief run --daily --dry-run
@@ -450,4 +460,4 @@ Issue・Pull Requestを歓迎します！
 
 ## サポート
 
-- GitHub Issues: https://github.com/masumomo/voice-brief/issues
+- GitHub Issues: <https://github.com/masumomo/voice-brief/issues>
