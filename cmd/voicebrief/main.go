@@ -364,13 +364,29 @@ func fetchEvents(ctx context.Context, cfg *config.Config, since, until time.Time
 func createCategorizer(cfg *config.CategorizerConfig) categorizer.Categorizer {
 	switch cfg.Provider {
 	case "gemini":
-		// TODO: GeminiCategorizerを実装後に有効化
-		fmt.Println("⚠️  警告: Gemini Categorizerは未実装です。ルールベースで代替します。")
-		return categorizer.NewRuleCategorizer()
+		apiKey := categorizer.GetGeminiAPIKey(cfg.GeminiAPIKey)
+		if apiKey == "" {
+			fmt.Printf("⚠️  警告: Gemini API Key が未設定です（環境変数: %s）。ルールベースで代替します。\n", cfg.GeminiAPIKey)
+			return categorizer.NewRuleCategorizer()
+		}
+		cat, err := categorizer.NewGeminiCategorizer(apiKey, cfg.GeminiModel)
+		if err != nil {
+			fmt.Printf("⚠️  警告: Gemini Categorizer の初期化に失敗: %v。ルールベースで代替します。\n", err)
+			return categorizer.NewRuleCategorizer()
+		}
+		return cat
 	case "openai":
-		// TODO: OpenAICategorizerを実装後に有効化
-		fmt.Println("⚠️  警告: OpenAI Categorizerは未実装です。ルールベースで代替します。")
-		return categorizer.NewRuleCategorizer()
+		apiKey := categorizer.GetOpenAIAPIKey(cfg.OpenAIAPIKey)
+		if apiKey == "" {
+			fmt.Printf("⚠️  警告: OpenAI API Key が未設定です（環境変数: %s）。ルールベースで代替します。\n", cfg.OpenAIAPIKey)
+			return categorizer.NewRuleCategorizer()
+		}
+		cat, err := categorizer.NewOpenAICategorizer(apiKey, cfg.OpenAIModel)
+		if err != nil {
+			fmt.Printf("⚠️  警告: OpenAI Categorizer の初期化に失敗: %v。ルールベースで代替します。\n", err)
+			return categorizer.NewRuleCategorizer()
+		}
+		return cat
 	default:
 		return categorizer.NewRuleCategorizer()
 	}
@@ -380,13 +396,29 @@ func createCategorizer(cfg *config.CategorizerConfig) categorizer.Categorizer {
 func createEventSummarizer(cfg *config.EventSummarizerConfig) summarizer.EventSummarizer {
 	switch cfg.Provider {
 	case "gemini":
-		// TODO: GeminiEventSummarizerを実装後に有効化
-		fmt.Println("⚠️  警告: Gemini EventSummarizerは未実装です。ルールベースで代替します。")
-		return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+		apiKey := summarizer.GetAPIKey(cfg.GeminiAPIKey)
+		if apiKey == "" {
+			fmt.Printf("⚠️  警告: Gemini API Key が未設定です（環境変数: %s）。ルールベースで代替します。\n", cfg.GeminiAPIKey)
+			return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+		}
+		sum, err := summarizer.NewGeminiEventSummarizer(apiKey, cfg.GeminiModel, cfg.MaxSummaryLen)
+		if err != nil {
+			fmt.Printf("⚠️  警告: Gemini EventSummarizer の初期化に失敗: %v。ルールベースで代替します。\n", err)
+			return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+		}
+		return sum
 	case "openai":
-		// TODO: OpenAIEventSummarizerを実装後に有効化
-		fmt.Println("⚠️  警告: OpenAI EventSummarizerは未実装です。ルールベースで代替します。")
-		return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+		apiKey := summarizer.GetAPIKey(cfg.OpenAIAPIKey)
+		if apiKey == "" {
+			fmt.Printf("⚠️  警告: OpenAI API Key が未設定です（環境変数: %s）。ルールベースで代替します。\n", cfg.OpenAIAPIKey)
+			return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+		}
+		sum, err := summarizer.NewOpenAIEventSummarizer(apiKey, cfg.OpenAIModel, cfg.MaxSummaryLen)
+		if err != nil {
+			fmt.Printf("⚠️  警告: OpenAI EventSummarizer の初期化に失敗: %v。ルールベースで代替します。\n", err)
+			return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+		}
+		return sum
 	default:
 		return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
 	}
