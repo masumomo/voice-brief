@@ -10,12 +10,15 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+
 	"github.com/masumomo/voice-brief/internal/categorizer"
 	"github.com/masumomo/voice-brief/internal/config"
 	"github.com/masumomo/voice-brief/internal/fetcher"
 	"github.com/masumomo/voice-brief/internal/logger"
 	"github.com/masumomo/voice-brief/internal/model"
 	"github.com/masumomo/voice-brief/internal/summarizer"
+	"github.com/masumomo/voice-brief/internal/summarizer/brief"
+	"github.com/masumomo/voice-brief/internal/summarizer/event"
 	"github.com/masumomo/voice-brief/internal/tts"
 	"github.com/masumomo/voice-brief/internal/uploader"
 )
@@ -396,31 +399,31 @@ func createCategorizer(cfg *config.CategorizerConfig) categorizer.Categorizer {
 func createEventSummarizer(cfg *config.EventSummarizerConfig) summarizer.EventSummarizer {
 	switch cfg.Provider {
 	case "gemini":
-		apiKey := summarizer.GetAPIKey(cfg.GeminiAPIKey)
+		apiKey := event.GetAPIKey(cfg.GeminiAPIKey)
 		if apiKey == "" {
 			fmt.Printf("⚠️  警告: Gemini API Key が未設定です（環境変数: %s）。ルールベースで代替します。\n", cfg.GeminiAPIKey)
-			return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+			return event.NewRuleEventSummarizer(cfg.MaxSummaryLen)
 		}
-		sum, err := summarizer.NewGeminiEventSummarizer(apiKey, cfg.GeminiModel, cfg.MaxSummaryLen)
+		sum, err := event.NewGeminiEventSummarizer(apiKey, cfg.GeminiModel, cfg.MaxSummaryLen)
 		if err != nil {
 			fmt.Printf("⚠️  警告: Gemini EventSummarizer の初期化に失敗: %v。ルールベースで代替します。\n", err)
-			return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+			return event.NewRuleEventSummarizer(cfg.MaxSummaryLen)
 		}
 		return sum
 	case "openai":
-		apiKey := summarizer.GetAPIKey(cfg.OpenAIAPIKey)
+		apiKey := event.GetAPIKey(cfg.OpenAIAPIKey)
 		if apiKey == "" {
 			fmt.Printf("⚠️  警告: OpenAI API Key が未設定です（環境変数: %s）。ルールベースで代替します。\n", cfg.OpenAIAPIKey)
-			return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+			return event.NewRuleEventSummarizer(cfg.MaxSummaryLen)
 		}
-		sum, err := summarizer.NewOpenAIEventSummarizer(apiKey, cfg.OpenAIModel, cfg.MaxSummaryLen)
+		sum, err := event.NewOpenAIEventSummarizer(apiKey, cfg.OpenAIModel, cfg.MaxSummaryLen)
 		if err != nil {
 			fmt.Printf("⚠️  警告: OpenAI EventSummarizer の初期化に失敗: %v。ルールベースで代替します。\n", err)
-			return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+			return event.NewRuleEventSummarizer(cfg.MaxSummaryLen)
 		}
 		return sum
 	default:
-		return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+		return event.NewRuleEventSummarizer(cfg.MaxSummaryLen)
 	}
 }
 
@@ -430,12 +433,12 @@ func generateBrief(cfg *config.Config, events model.Events, briefType model.Brie
 	switch cfg.BriefSummarizer.Provider {
 	case "gemini":
 		// Gemini API Key を環境変数から取得
-		apiKey := summarizer.GetAPIKey(cfg.BriefSummarizer.GeminiAPIKey)
+		apiKey := brief.GetAPIKey(cfg.BriefSummarizer.GeminiAPIKey)
 		if apiKey == "" {
 			return nil, fmt.Errorf("Gemini API Key が設定されていません（環境変数: %s）", cfg.BriefSummarizer.GeminiAPIKey)
 		}
 
-		sum, err := summarizer.NewGeminiSummarizer(
+		sum, err := brief.NewGeminiSummarizer(
 			apiKey,
 			cfg.BriefSummarizer.GeminiModel,
 			cfg.Brief.MaxItemsDaily,
@@ -453,12 +456,12 @@ func generateBrief(cfg *config.Config, events model.Events, briefType model.Brie
 
 	case "openai":
 		// OpenAI API Key を環境変数から取得
-		apiKey := summarizer.GetAPIKey(cfg.BriefSummarizer.OpenAIAPIKey)
+		apiKey := brief.GetAPIKey(cfg.BriefSummarizer.OpenAIAPIKey)
 		if apiKey == "" {
 			return nil, fmt.Errorf("OpenAI API Key が設定されていません（環境変数: %s）", cfg.BriefSummarizer.OpenAIAPIKey)
 		}
 
-		sum, err := summarizer.NewOpenAISummarizer(
+		sum, err := brief.NewOpenAISummarizer(
 			apiKey,
 			cfg.BriefSummarizer.OpenAIModel,
 			cfg.Brief.MaxItemsDaily,
@@ -468,11 +471,11 @@ func generateBrief(cfg *config.Config, events model.Events, briefType model.Brie
 			return nil, fmt.Errorf("OpenAI Summarizer の初期化に失敗: %w", err)
 		}
 
-		var brief *model.Brief
+		var b *model.Brief
 		if briefType == model.BriefTypeDaily {
-			brief, err = sum.GenerateDaily(events)
+			b, err = sum.GenerateDaily(events)
 		} else {
-			brief, err = sum.GenerateWeekly(events)
+			b, err = sum.GenerateWeekly(events)
 		}
 
 		if err != nil {
@@ -485,13 +488,13 @@ func generateBrief(cfg *config.Config, events model.Events, briefType model.Brie
 		fmt.Printf("💰 OpenAI コスト: $%.6f (Total: %d tokens, Prompt: %d, Completion: %d)\n",
 			cost, total, prompt, completion)
 
-		return brief, nil
+		return b, nil
 
 	case "rule":
 		fallthrough
 	default:
 		// ルールベース要約
-		sum := summarizer.NewRuleSummarizer(cfg.Brief.MaxItemsDaily, cfg.Brief.MaxItemsWeekly)
+		sum := brief.NewRuleSummarizer(cfg.Brief.MaxItemsDaily, cfg.Brief.MaxItemsWeekly)
 
 		if briefType == model.BriefTypeDaily {
 			return sum.GenerateDaily(events)

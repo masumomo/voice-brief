@@ -1,4 +1,4 @@
-package summarizer
+package event
 
 import (
 	"context"
@@ -6,38 +6,33 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/generative-ai-go/genai"
 	"github.com/masumomo/voice-brief/internal/model"
-	"google.golang.org/api/option"
+	openai "github.com/sashabaranov/go-openai"
 )
 
-// GeminiEventSummarizer はGemini APIを使用したイベント要約器
-type GeminiEventSummarizer struct {
+// OpenAIEventSummarizer はOpenAI APIを使用したイベント要約器
+type OpenAIEventSummarizer struct {
 	apiKey        string
 	model         string
 	maxSummaryLen int
-	client        *genai.Client
+	client        *openai.Client
 }
 
-// NewGeminiEventSummarizer は新しいGeminiEventSummarizerを作成します
-func NewGeminiEventSummarizer(apiKey, modelName string, maxSummaryLen int) (*GeminiEventSummarizer, error) {
+// NewOpenAIEventSummarizer は新しいOpenAIEventSummarizerを作成します
+func NewOpenAIEventSummarizer(apiKey, modelName string, maxSummaryLen int) (*OpenAIEventSummarizer, error) {
 	if apiKey == "" {
-		return nil, fmt.Errorf("Gemini API Key が設定されていません")
+		return nil, fmt.Errorf("OpenAI API Key が設定されていません")
 	}
 	if modelName == "" {
-		modelName = "gemini-2.0-flash-exp"
+		modelName = "gpt-4o-mini" // コスト効率重視
 	}
 	if maxSummaryLen <= 0 {
 		maxSummaryLen = 200
 	}
 
-	ctx := context.Background()
-	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
-	if err != nil {
-		return nil, fmt.Errorf("Gemini クライアントの作成に失敗: %w", err)
-	}
+	client := openai.NewClient(apiKey)
 
-	return &GeminiEventSummarizer{
+	return &OpenAIEventSummarizer{
 		apiKey:        apiKey,
 		model:         modelName,
 		maxSummaryLen: maxSummaryLen,
@@ -45,16 +40,8 @@ func NewGeminiEventSummarizer(apiKey, modelName string, maxSummaryLen int) (*Gem
 	}, nil
 }
 
-// Close はクライアントをクローズします
-func (s *GeminiEventSummarizer) Close() error {
-	if s.client != nil {
-		return s.client.Close()
-	}
-	return nil
-}
-
 // Summarize は単一イベントを要約します
-func (s *GeminiEventSummarizer) Summarize(event *model.Event) error {
+func (s *OpenAIEventSummarizer) Summarize(event *model.Event) error {
 	if event == nil {
 		return fmt.Errorf("event is nil")
 	}
@@ -73,32 +60,44 @@ func (s *GeminiEventSummarizer) Summarize(event *model.Event) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	prompt := s.buildPrompt(event)
+	systemPrompt := fmt.Sprintf(`あなたはイベント要約の専門家です。
+与えられたイベント情報を%d文字以内で簡潔に要約してください。
+音声で読み上げやすい自然な日本語で、要点のみを抽出してください。
+要約のみを回答し、余計な説明は不要です。`, s.maxSummaryLen)
 
-	genModel := s.client.GenerativeModel(s.model)
-	genModel.SetTemperature(0.3)
+	userPrompt := s.buildPrompt(event)
 
-	resp, err := genModel.GenerateContent(ctx, genai.Text(prompt))
+	resp, err := s.client.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model: s.model,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: systemPrompt,
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: userPrompt,
+				},
+			},
+			Temperature: 0.3,
+			MaxTokens:   200, // 要約なので短い
+		},
+	)
+
 	if err != nil {
 		// エラー時はルールベースのフォールバック
 		event.Summary = s.fallbackSummary(event)
 		return nil
 	}
 
-	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+	if len(resp.Choices) == 0 {
 		event.Summary = s.fallbackSummary(event)
 		return nil
 	}
 
-	// レスポンスから要約を抽出
-	var result strings.Builder
-	for _, part := range resp.Candidates[0].Content.Parts {
-		if text, ok := part.(genai.Text); ok {
-			result.WriteString(string(text))
-		}
-	}
-
-	summary := strings.TrimSpace(result.String())
+	summary := strings.TrimSpace(resp.Choices[0].Message.Content)
 	if len(summary) > s.maxSummaryLen {
 		summary = summary[:s.maxSummaryLen] + "..."
 	}
@@ -108,7 +107,7 @@ func (s *GeminiEventSummarizer) Summarize(event *model.Event) error {
 }
 
 // SummarizeAll は複数イベントを一括要約します
-func (s *GeminiEventSummarizer) SummarizeAll(events model.Events) error {
+func (s *OpenAIEventSummarizer) SummarizeAll(events model.Events) error {
 	for _, event := range events {
 		if err := s.Summarize(event); err != nil {
 			// エラーでも継続（Best Effort）
@@ -119,7 +118,7 @@ func (s *GeminiEventSummarizer) SummarizeAll(events model.Events) error {
 }
 
 // buildPrompt はイベント要約用のプロンプトを構築します
-func (s *GeminiEventSummarizer) buildPrompt(event *model.Event) string {
+func (s *OpenAIEventSummarizer) buildPrompt(event *model.Event) string {
 	commentsInfo := ""
 	if len(event.Comments) > 0 {
 		commentsInfo = fmt.Sprintf("\n\nコメント数: %d件", len(event.Comments))
@@ -137,17 +136,11 @@ func (s *GeminiEventSummarizer) buildPrompt(event *model.Event) string {
 		}
 	}
 
-	return fmt.Sprintf(`以下のイベント情報を%d文字以内で簡潔に要約してください。
-要点のみを抽出し、音声で読み上げやすい自然な日本語で回答してください。
-
-タイトル: %s
+	return fmt.Sprintf(`タイトル: %s
 ソース: %s
 場所: %s
 本文:
-%s%s
-
-要約:`,
-		s.maxSummaryLen,
+%s%s`,
 		event.Title,
 		event.Source,
 		event.Location,
@@ -157,7 +150,7 @@ func (s *GeminiEventSummarizer) buildPrompt(event *model.Event) string {
 }
 
 // fallbackSummary はエラー時のフォールバック要約を生成します
-func (s *GeminiEventSummarizer) fallbackSummary(event *model.Event) string {
+func (s *OpenAIEventSummarizer) fallbackSummary(event *model.Event) string {
 	text := event.Body
 	text = strings.ReplaceAll(text, "\n", " ")
 	for strings.Contains(text, "  ") {

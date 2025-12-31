@@ -1,11 +1,20 @@
-package summarizer
+package event
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/masumomo/voice-brief/internal/model"
 )
+
+// GetAPIKey は環境変数からAPI Keyを取得します
+func GetAPIKey(envName string) string {
+	if envName == "" {
+		return ""
+	}
+	return os.Getenv(envName)
+}
 
 // RuleEventSummarizer はルールベースのイベント要約器
 type RuleEventSummarizer struct {
