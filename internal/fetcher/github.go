@@ -208,7 +208,7 @@ func (f *GitHubFetcher) issueToEvent(issue *github.Issue, owner, repo string) *m
 	}
 
 	event.Title = fmt.Sprintf("%s #%d: %s", prefix, issue.GetNumber(), issue.GetTitle())
-	event.Body = truncate(issue.GetBody(), 500)
+	event.Body = issue.GetBody()
 
 	// 作成者
 	if issue.GetUser() != nil {

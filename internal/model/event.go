@@ -4,19 +4,28 @@ import (
 	"time"
 )
 
+// Comment はイベントに紐づくコメント（スレッド返信、Issue/PRコメント等）を表す構造体
+type Comment struct {
+	Author    string    // 投稿者
+	Text      string    // 本文
+	Timestamp time.Time // 投稿時刻
+}
+
 // Event は正規化されたイベントモデル
 type Event struct {
 	ID         string            // Unique ID
 	Source     string            // "slack" | "notion" | "github"
 	Category   string            // "dev" | "biz" | "incident" | "ops" | "other"
 	Timestamp  time.Time         // イベント発生時刻
-	Title      string            // 短い見出し
-	Body       string            // 本文抜粋
+	Title      string            // 短い見出し（50文字程度）
+	Body       string            // 本文（全文）
+	Summary    string            // 本文の要約（Summarizer等で生成）
 	URL        string            // Direct Link
 	Location   string            // Channel Name or DB Name
 	Author     string            // User Name
 	Importance int               // 0-100（フィルタ・並び替えに利用）
 	Refs       map[string]string // 追加情報（channel_id, tags等）
+	Comments   []Comment         // 関連コメント（Slackスレッド返信、GitHubコメント等）
 }
 
 // EventSource はイベントソースの定数
@@ -41,8 +50,34 @@ func NewEvent(source string) *Event {
 		Source:     source,
 		Category:   EventCategoryOther,
 		Refs:       make(map[string]string),
+		Comments:   make([]Comment, 0),
 		Importance: 50, // デフォルト値
 	}
+}
+
+// AddComment はイベントにコメントを追加します
+func (e *Event) AddComment(author, text string, timestamp time.Time) {
+	e.Comments = append(e.Comments, Comment{
+		Author:    author,
+		Text:      text,
+		Timestamp: timestamp,
+	})
+}
+
+// GetCommentCount はコメント数を返します
+func (e *Event) GetCommentCount() int {
+	return len(e.Comments)
+}
+
+// GetDisplayText は表示用テキストを返します（Summaryがあればそれを、なければBodyを切り詰めて返す）
+func (e *Event) GetDisplayText(maxLen int) string {
+	if e.Summary != "" {
+		return e.Summary
+	}
+	if len(e.Body) <= maxLen {
+		return e.Body
+	}
+	return e.Body[:maxLen] + "..."
 }
 
 // Events はEventのスライス

@@ -11,15 +11,16 @@ import (
 
 // Config はアプリケーション全体の設定を保持します
 type Config struct {
-	App         AppConfig         `yaml:"app"`
-	Slack       SlackConfig       `yaml:"slack"`
-	Notion      NotionConfig      `yaml:"notion"`
-	GitHub      GitHubConfig      `yaml:"github"`
-	Brief       BriefConfig       `yaml:"brief"`
-	Categorizer CategorizerConfig `yaml:"categorizer"`
-	Summarizer  SummarizerConfig  `yaml:"summarizer"`
-	TTS         TTSConfig         `yaml:"tts"`
-	Runtime     RuntimeConfig     `yaml:"runtime"`
+	App             AppConfig             `yaml:"app"`
+	Slack           SlackConfig           `yaml:"slack"`
+	Notion          NotionConfig          `yaml:"notion"`
+	GitHub          GitHubConfig          `yaml:"github"`
+	Brief           BriefConfig           `yaml:"brief"`
+	Categorizer      CategorizerConfig      `yaml:"categorizer"`
+	EventSummarizer  EventSummarizerConfig  `yaml:"event_summarizer"`
+	BriefSummarizer  BriefSummarizerConfig  `yaml:"brief_summarizer"`
+	TTS             TTSConfig             `yaml:"tts"`
+	Runtime         RuntimeConfig         `yaml:"runtime"`
 }
 
 // AppConfig はアプリケーション基本設定
@@ -107,8 +108,18 @@ type CategorizerConfig struct {
 	OpenAIAPIKey string `yaml:"openai_api_key_env"`  // 環境変数名
 }
 
-// SummarizerConfig は要約エンジン設定
-type SummarizerConfig struct {
+// EventSummarizerConfig はイベント要約エンジン設定
+type EventSummarizerConfig struct {
+	Provider      string `yaml:"provider"`            // "rule" or "gemini" or "openai"
+	MaxSummaryLen int    `yaml:"max_summary_len"`     // 要約の最大文字数
+	GeminiModel   string `yaml:"gemini_model"`        // Gemini使用時のモデル
+	GeminiAPIKey  string `yaml:"gemini_api_key_env"`  // 環境変数名
+	OpenAIModel   string `yaml:"openai_model"`        // OpenAI使用時のモデル
+	OpenAIAPIKey  string `yaml:"openai_api_key_env"`  // 環境変数名
+}
+
+// BriefSummarizerConfig はブリーフィング要約エンジン設定
+type BriefSummarizerConfig struct {
 	Provider     string `yaml:"provider"` // "rule" or "gemini" or "openai"
 	GeminiModel  string `yaml:"gemini_model"`
 	GeminiAPIKey string `yaml:"gemini_api_key_env"` // 環境変数名
@@ -188,18 +199,18 @@ func (c *Config) loadTokensFromEnv() error {
 	}
 
 	// Gemini API Key（オプション）
-	if c.Summarizer.Provider == "gemini" && c.Summarizer.GeminiAPIKey != "" {
-		apiKey := os.Getenv(c.Summarizer.GeminiAPIKey)
+	if c.BriefSummarizer.Provider == "gemini" && c.BriefSummarizer.GeminiAPIKey != "" {
+		apiKey := os.Getenv(c.BriefSummarizer.GeminiAPIKey)
 		if apiKey == "" {
-			return fmt.Errorf("環境変数 %s が設定されていません（Gemini providerを使用する場合は必須）", c.Summarizer.GeminiAPIKey)
+			return fmt.Errorf("環境変数 %s が設定されていません（Gemini providerを使用する場合は必須）", c.BriefSummarizer.GeminiAPIKey)
 		}
 	}
 
 	// OpenAI API Key（オプション）
-	if c.Summarizer.Provider == "openai" && c.Summarizer.OpenAIAPIKey != "" {
-		apiKey := os.Getenv(c.Summarizer.OpenAIAPIKey)
+	if c.BriefSummarizer.Provider == "openai" && c.BriefSummarizer.OpenAIAPIKey != "" {
+		apiKey := os.Getenv(c.BriefSummarizer.OpenAIAPIKey)
 		if apiKey == "" {
-			return fmt.Errorf("環境変数 %s が設定されていません（OpenAI Summarizer使用時は必須）", c.Summarizer.OpenAIAPIKey)
+			return fmt.Errorf("環境変数 %s が設定されていません（OpenAI BriefSummarizer使用時は必須）", c.BriefSummarizer.OpenAIAPIKey)
 		}
 	}
 
@@ -318,21 +329,41 @@ func (c *Config) Validate() error {
 		c.Categorizer.OpenAIModel = "gpt-4o-mini" // デフォルト値（コスト効率重視）
 	}
 
-	// Summarizer設定の検証
-	if c.Summarizer.Provider == "" {
-		c.Summarizer.Provider = "rule" // デフォルト値
+	// EventSummarizer設定の検証
+	if c.EventSummarizer.Provider == "" {
+		c.EventSummarizer.Provider = "rule" // デフォルト値
 	}
-	validSummarizerProviders := []string{"rule", "gemini", "openai"}
-	if !contains(validSummarizerProviders, c.Summarizer.Provider) {
-		return fmt.Errorf("summarizer.provider は rule, gemini, openai のいずれかである必要があります")
+	validEventSummarizerProviders := []string{"rule", "gemini", "openai"}
+	if !contains(validEventSummarizerProviders, c.EventSummarizer.Provider) {
+		return fmt.Errorf("event_summarizer.provider は rule, gemini, openai のいずれかである必要があります")
+	}
+	if c.EventSummarizer.MaxSummaryLen <= 0 {
+		c.EventSummarizer.MaxSummaryLen = 200 // デフォルト値
 	}
 	// Gemini使用時のデフォルトモデル
-	if c.Summarizer.Provider == "gemini" && c.Summarizer.GeminiModel == "" {
-		c.Summarizer.GeminiModel = "gemini-2.0-flash-exp" // デフォルト値
+	if c.EventSummarizer.Provider == "gemini" && c.EventSummarizer.GeminiModel == "" {
+		c.EventSummarizer.GeminiModel = "gemini-2.0-flash-exp"
 	}
 	// OpenAI使用時のデフォルトモデル
-	if c.Summarizer.Provider == "openai" && c.Summarizer.OpenAIModel == "" {
-		c.Summarizer.OpenAIModel = "gpt-4o-mini" // デフォルト値（コスト効率重視）
+	if c.EventSummarizer.Provider == "openai" && c.EventSummarizer.OpenAIModel == "" {
+		c.EventSummarizer.OpenAIModel = "gpt-4o-mini"
+	}
+
+	// BriefSummarizer設定の検証
+	if c.BriefSummarizer.Provider == "" {
+		c.BriefSummarizer.Provider = "rule" // デフォルト値
+	}
+	validBriefSummarizerProviders := []string{"rule", "gemini", "openai"}
+	if !contains(validBriefSummarizerProviders, c.BriefSummarizer.Provider) {
+		return fmt.Errorf("brief_summarizer.provider は rule, gemini, openai のいずれかである必要があります")
+	}
+	// Gemini使用時のデフォルトモデル
+	if c.BriefSummarizer.Provider == "gemini" && c.BriefSummarizer.GeminiModel == "" {
+		c.BriefSummarizer.GeminiModel = "gemini-2.0-flash-exp" // デフォルト値
+	}
+	// OpenAI使用時のデフォルトモデル
+	if c.BriefSummarizer.Provider == "openai" && c.BriefSummarizer.OpenAIModel == "" {
+		c.BriefSummarizer.OpenAIModel = "gpt-4o-mini" // デフォルト値（コスト効率重視）
 	}
 
 	// TTS設定の検証

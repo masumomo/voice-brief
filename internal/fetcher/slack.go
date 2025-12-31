@@ -200,7 +200,7 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
-// fetchThreadReplies はスレッドの返信を取得して、親イベントに情報を追加します
+// fetchThreadReplies はスレッドの返信を取得して、親イベントのCommentsに追加します
 func (f *SlackFetcher) fetchThreadReplies(ctx context.Context, channelID, threadTS string, parentEvent *model.Event) (int, error) {
 	params := &slack.GetConversationRepliesParameters{
 		ChannelID: channelID,
@@ -218,16 +218,12 @@ func (f *SlackFetcher) fetchThreadReplies(ctx context.Context, channelID, thread
 		return 0, nil
 	}
 
-	replyCount := len(replies) - 1
+	commentCount := 0
 
-	// スレッドの返信をBodyに追加（簡易版：最初の3件のみ）
-	threadSummary := make([]string, 0, 3)
+	// スレッドの返信をCommentsに追加
 	for i, reply := range replies {
 		if i == 0 {
 			continue // 親メッセージをスキップ
-		}
-		if i > 3 {
-			break // 最初の3件のみ
 		}
 
 		// Bot投稿を除外
@@ -235,15 +231,13 @@ func (f *SlackFetcher) fetchThreadReplies(ctx context.Context, channelID, thread
 			continue
 		}
 
-		threadSummary = append(threadSummary, fmt.Sprintf("  💬 %s", truncate(reply.Text, 100)))
+		parentEvent.AddComment(
+			f.getUserName(reply.User),
+			reply.Text,
+			parseSlackTimestamp(reply.Timestamp),
+		)
+		commentCount++
 	}
 
-	if len(threadSummary) > 0 {
-		parentEvent.Body = parentEvent.Body + "\n\nスレッド返信:\n" + strings.Join(threadSummary, "\n")
-		if replyCount > 3 {
-			parentEvent.Body += fmt.Sprintf("\n  ... 他%d件の返信", replyCount-3)
-		}
-	}
-
-	return replyCount, nil
+	return commentCount, nil
 }

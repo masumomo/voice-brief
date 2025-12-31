@@ -200,7 +200,7 @@ func handleRunCommand() {
 	}
 
 	// 1. データ取得
-	fmt.Printf("📥 Step 1/5: データ取得中... [%s]\n", periodStr)
+	fmt.Printf("📥 Step 1/6: データ取得中... [%s]\n", periodStr)
 	log.Debug("Starting data fetch", map[string]interface{}{
 		"brief_type": string(briefType),
 		"since":      since.Format("2006-01-02 15:04:05"),
@@ -228,13 +228,23 @@ func handleRunCommand() {
 	}
 
 	// 2. カテゴリ判定
-	fmt.Println("🏷️  Step 2/5: カテゴリ判定中...")
+	fmt.Println("🏷️  Step 2/6: カテゴリ判定中...")
 	cat := createCategorizer(&cfg.Categorizer)
 	cat.CategorizeAll(events)
 	fmt.Printf("✓ %d 件のイベントをカテゴリ分類\n\n", len(events))
 
-	// 3. 要約生成
-	fmt.Println("📝 Step 3/5: ブリーフィング要約生成中...")
+	// 3. イベント要約
+	fmt.Println("📄 Step 3/6: イベント要約生成中...")
+	eventSum := createEventSummarizer(&cfg.EventSummarizer)
+	if err := eventSum.SummarizeAll(events); err != nil {
+		log.Warn("イベント要約の一部に失敗しました", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+	fmt.Printf("✓ %d 件のイベントを要約\n\n", len(events))
+
+	// 4. ブリーフィング要約生成
+	fmt.Println("📝 Step 4/6: ブリーフィング要約生成中...")
 	log.Debug("Generating brief summary")
 	brief, err := generateBrief(cfg, events, briefType)
 	if err != nil {
@@ -249,8 +259,8 @@ func handleRunCommand() {
 	})
 	fmt.Printf("✓ 要約生成完了 (対象: %d 件)\n\n", brief.GetEventCount())
 
-	// 4. ファイル出力（Markdown + Script + Events）
-	fmt.Println("💾 Step 4/5: ファイル保存中...")
+	// 5. ファイル出力（Markdown + Script + Events）
+	fmt.Println("💾 Step 5/6: ファイル保存中...")
 	markdownPath, scriptPath, err := saveMarkdown(cfg.App.OutputDir, brief)
 	if err != nil {
 		fmt.Printf("❌ エラー: ファイル保存に失敗: %v\n", err)
@@ -268,17 +278,17 @@ func handleRunCommand() {
 	}
 	fmt.Println()
 
-	// 5. 音声生成
+	// 6. 音声生成
 	if dryRun {
 		log.Info("Skipping audio generation (dry-run mode)")
-		fmt.Println("🔇 Step 5/5: 音声生成スキップ (--dry-run)")
+		fmt.Println("🔇 Step 6/6: 音声生成スキップ (--dry-run)")
 		fmt.Printf("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
 		fmt.Printf("📄 Markdown: %s\n", markdownPath)
 		fmt.Printf("📝 Script: %s\n", scriptPath)
 		return
 	}
 
-	fmt.Println("🎤 Step 5/5: 音声ファイル生成中...")
+	fmt.Println("🎤 Step 6/6: 音声ファイル生成中...")
 	log.Debug("Generating audio file")
 	audioPath, err := generateAudio(ctx, cfg, brief, briefType)
 	if err != nil {
@@ -366,20 +376,36 @@ func createCategorizer(cfg *config.CategorizerConfig) categorizer.Categorizer {
 	}
 }
 
+// createEventSummarizer は設定に基づいてEventSummarizerを作成します
+func createEventSummarizer(cfg *config.EventSummarizerConfig) summarizer.EventSummarizer {
+	switch cfg.Provider {
+	case "gemini":
+		// TODO: GeminiEventSummarizerを実装後に有効化
+		fmt.Println("⚠️  警告: Gemini EventSummarizerは未実装です。ルールベースで代替します。")
+		return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+	case "openai":
+		// TODO: OpenAIEventSummarizerを実装後に有効化
+		fmt.Println("⚠️  警告: OpenAI EventSummarizerは未実装です。ルールベースで代替します。")
+		return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+	default:
+		return summarizer.NewRuleEventSummarizer(cfg.MaxSummaryLen)
+	}
+}
+
 // generateBrief はブリーフィングを生成します
 func generateBrief(cfg *config.Config, events model.Events, briefType model.BriefType) (*model.Brief, error) {
 	// Provider に応じて Summarizer を選択
-	switch cfg.Summarizer.Provider {
+	switch cfg.BriefSummarizer.Provider {
 	case "gemini":
 		// Gemini API Key を環境変数から取得
-		apiKey := summarizer.GetAPIKey(cfg.Summarizer.GeminiAPIKey)
+		apiKey := summarizer.GetAPIKey(cfg.BriefSummarizer.GeminiAPIKey)
 		if apiKey == "" {
-			return nil, fmt.Errorf("Gemini API Key が設定されていません（環境変数: %s）", cfg.Summarizer.GeminiAPIKey)
+			return nil, fmt.Errorf("Gemini API Key が設定されていません（環境変数: %s）", cfg.BriefSummarizer.GeminiAPIKey)
 		}
 
 		sum, err := summarizer.NewGeminiSummarizer(
 			apiKey,
-			cfg.Summarizer.GeminiModel,
+			cfg.BriefSummarizer.GeminiModel,
 			cfg.Brief.MaxItemsDaily,
 			cfg.Brief.MaxItemsWeekly,
 		)
@@ -395,14 +421,14 @@ func generateBrief(cfg *config.Config, events model.Events, briefType model.Brie
 
 	case "openai":
 		// OpenAI API Key を環境変数から取得
-		apiKey := summarizer.GetAPIKey(cfg.Summarizer.OpenAIAPIKey)
+		apiKey := summarizer.GetAPIKey(cfg.BriefSummarizer.OpenAIAPIKey)
 		if apiKey == "" {
-			return nil, fmt.Errorf("OpenAI API Key が設定されていません（環境変数: %s）", cfg.Summarizer.OpenAIAPIKey)
+			return nil, fmt.Errorf("OpenAI API Key が設定されていません（環境変数: %s）", cfg.BriefSummarizer.OpenAIAPIKey)
 		}
 
 		sum, err := summarizer.NewOpenAISummarizer(
 			apiKey,
-			cfg.Summarizer.OpenAIModel,
+			cfg.BriefSummarizer.OpenAIModel,
 			cfg.Brief.MaxItemsDaily,
 			cfg.Brief.MaxItemsWeekly,
 		)
@@ -577,6 +603,16 @@ func dumpEventsToFile(outDir string, events model.Events, briefType model.BriefT
 	return nil
 }
 
+// truncateForDisplay は文字列を指定長で切り詰めます（表示用）
+func truncateForDisplay(s string, maxLen int) string {
+	// 改行を空白に置換
+	s = strings.ReplaceAll(s, "\n", " ")
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
 // saveEventsDetail はイベントの詳細をMarkdown形式で保存します
 func saveEventsDetail(outDir string, events model.Events, brief *model.Brief) (string, error) {
 	// 出力パスを生成
@@ -651,6 +687,18 @@ func saveEventsDetail(outDir string, events model.Events, brief *model.Brief) (s
 				sb.WriteString("\n```\n\n")
 			}
 
+			// コメント（スレッド返信、Issue/PRコメント等）
+			if len(event.Comments) > 0 {
+				sb.WriteString(fmt.Sprintf("**コメント** (%d件):\n\n", len(event.Comments)))
+				for j, comment := range event.Comments {
+					sb.WriteString(fmt.Sprintf("%d. **%s** (%s):\n",
+						j+1,
+						comment.Author,
+						comment.Timestamp.Format("15:04:05")))
+					sb.WriteString(fmt.Sprintf("   > %s\n\n", truncateForDisplay(comment.Text, 200)))
+				}
+			}
+
 			sb.WriteString("---\n\n")
 		}
 	}
@@ -722,7 +770,8 @@ func handleConfigCommand(subcommand string) {
 
 	// Categorizer/Summarizer/TTS設定の確認
 	fmt.Printf("✓ カテゴリ判定: %s\n", cfg.Categorizer.Provider)
-	fmt.Printf("✓ 要約エンジン: %s\n", cfg.Summarizer.Provider)
+	fmt.Printf("✓ イベント要約: %s (最大%d文字)\n", cfg.EventSummarizer.Provider, cfg.EventSummarizer.MaxSummaryLen)
+	fmt.Printf("✓ ブリーフィング要約: %s\n", cfg.BriefSummarizer.Provider)
 	fmt.Printf("✓ 音声合成: %s (音声: %s, 速度: %.1fx)\n", cfg.TTS.Provider, cfg.TTS.Voice, cfg.TTS.Rate)
 
 	// トークンの形式検証

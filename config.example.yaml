@@ -73,8 +73,17 @@ categorizer:
   # openai_model: "gpt-4o-mini"  # providerがopenaiの場合
   # openai_api_key_env: "OPENAI_API_KEY"  # OpenAI使用時の環境変数名
 
-# 要約エンジン設定
-summarizer:
+# イベント要約エンジン設定（個々のイベントを要約）
+event_summarizer:
+  provider: "rule" # "rule" | "gemini" | "openai"
+  max_summary_len: 200 # 要約の最大文字数
+  # gemini_model: "gemini-2.0-flash-exp"  # providerがgeminiの場合のみ
+  # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini使用時の環境変数名
+  # openai_model: "gpt-4o-mini"  # providerがopenaiの場合
+  # openai_api_key_env: "OPENAI_API_KEY"  # OpenAI使用時の環境変数名
+
+# ブリーフィング要約エンジン設定（全イベントからブリーフィングを生成）
+brief_summarizer:
   provider: "rule" # "rule" | "gemini" | "openai"
   # gemini_model: "gemini-2.0-flash-exp"  # providerがgeminiの場合のみ
   # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini使用時の環境変数名
