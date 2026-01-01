@@ -426,7 +426,7 @@ func (c *Config) Validate() error {
 	}
 	// Gemini使用時のデフォルトモデル
 	if c.Categorizer.Provider == "gemini" && c.Categorizer.GeminiModel == "" {
-		c.Categorizer.GeminiModel = "gemini-2.0-flash-exp" // デフォルト値
+		c.Categorizer.GeminiModel = "gemini-2.0-flash-lite" // デフォルト値
 	}
 	// OpenAI使用時のデフォルトモデル
 	if c.Categorizer.Provider == "openai" && c.Categorizer.OpenAIModel == "" {
@@ -446,7 +446,7 @@ func (c *Config) Validate() error {
 	}
 	// Gemini使用時のデフォルトモデル
 	if c.EventSummarizer.Provider == "gemini" && c.EventSummarizer.GeminiModel == "" {
-		c.EventSummarizer.GeminiModel = "gemini-2.0-flash-exp"
+		c.EventSummarizer.GeminiModel = "gemini-2.0-flash-lite"
 	}
 	// OpenAI使用時のデフォルトモデル
 	if c.EventSummarizer.Provider == "openai" && c.EventSummarizer.OpenAIModel == "" {
@@ -463,7 +463,7 @@ func (c *Config) Validate() error {
 	}
 	// Gemini使用時のデフォルトモデル
 	if c.BriefSummarizer.Provider == "gemini" && c.BriefSummarizer.GeminiModel == "" {
-		c.BriefSummarizer.GeminiModel = "gemini-2.0-flash-exp" // デフォルト値
+		c.BriefSummarizer.GeminiModel = "gemini-2.0-flash-lite" // デフォルト値
 	}
 	// OpenAI使用時のデフォルトモデル
 	if c.BriefSummarizer.Provider == "openai" && c.BriefSummarizer.OpenAIModel == "" {

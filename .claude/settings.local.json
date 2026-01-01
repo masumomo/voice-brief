@@ -23,7 +23,9 @@
       "Bash(awk:*)",
       "Bash(git tag -a:*)",
       "WebSearch",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []

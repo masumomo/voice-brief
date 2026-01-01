@@ -55,6 +55,10 @@ func (c *OpenAICategorizer) Categorize(event *model.Event) string {
 
 	userPrompt := c.buildPrompt(event)
 
+	// レート制限対策
+	time.Sleep(1 * time.Second)
+
+	startTime := time.Now()
 	resp, err := c.client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
@@ -74,8 +78,10 @@ func (c *OpenAICategorizer) Categorize(event *model.Event) string {
 		},
 	)
 
+	elapsed := time.Since(startTime)
+
 	if err != nil {
-		fmt.Printf("⚠️  OpenAI カテゴリ判定エラー: %v\n", err)
+		fmt.Printf("⚠️  OpenAI カテゴリ判定エラー: %v (elapsed=%v)\n", err, elapsed)
 		return model.EventCategoryOther
 	}
 
@@ -83,16 +89,24 @@ func (c *OpenAICategorizer) Categorize(event *model.Event) string {
 		return model.EventCategoryOther
 	}
 
-	return c.parseCategory(resp.Choices[0].Message.Content)
+	category := c.parseCategory(resp.Choices[0].Message.Content)
+	fmt.Printf("  → %s (tokens: %d, elapsed: %v)\n", category, resp.Usage.TotalTokens, elapsed)
+	return category
 }
 
 // CategorizeAll は複数イベントのカテゴリを一括判定します
 func (c *OpenAICategorizer) CategorizeAll(events model.Events) {
-	for _, event := range events {
+	total := len(events)
+	fmt.Printf("🏷️  OpenAI カテゴリ判定開始: %d件 (model=%s)\n", total, c.model)
+
+	for i, event := range events {
 		if event.Category == "" || event.Category == model.EventCategoryOther {
+			title := util.TruncateText(event.Title, 30)
+			fmt.Printf("[%d/%d] %s\n", i+1, total, title)
 			event.Category = c.Categorize(event)
 		}
 	}
+	fmt.Println("✅ カテゴリ判定完了")
 }
 
 // buildPrompt はカテゴリ判定用のプロンプトを構築します

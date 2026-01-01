@@ -27,19 +27,25 @@ type OpenAISummarizer struct {
 	totalCompletionTokens int
 }
 
+const (
+	defaultOpenAIModel          = "gpt-4o-mini"
+	defaultOpenAIMaxItemsDaily  = 8
+	defaultOpenAIMaxItemsWeekly = 25
+)
+
 // NewOpenAISummarizer は新しいOpenAISummarizerを作成します
 func NewOpenAISummarizer(apiKey, model string, maxDaily, maxWeekly int) (*OpenAISummarizer, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("OpenAI API Key が設定されていません")
 	}
 	if model == "" {
-		model = "gpt-4o-mini" // デフォルトはコスト効率の良いgpt-4o-mini
+		model = defaultOpenAIModel
 	}
 	if maxDaily <= 0 {
-		maxDaily = 8
+		maxDaily = defaultOpenAIMaxItemsDaily
 	}
 	if maxWeekly <= 0 {
-		maxWeekly = 25
+		maxWeekly = defaultOpenAIMaxItemsWeekly
 	}
 
 	client := openai.NewClient(apiKey)
@@ -54,11 +60,9 @@ func NewOpenAISummarizer(apiKey, model string, maxDaily, maxWeekly int) (*OpenAI
 }
 
 // GenerateDaily はDaily Briefingを生成します
-func (s *OpenAISummarizer) GenerateDaily(events model.Events) (*model.Brief, error) {
-	now := time.Now()
-	start := now.Add(-24 * time.Hour)
-
-	brief := model.NewBrief(model.BriefTypeDaily, start, now)
+// since: 期間の開始時刻, until: 期間の終了時刻
+func (s *OpenAISummarizer) GenerateDaily(events model.Events, since, until time.Time) (*model.Brief, error) {
+	brief := model.NewBrief(model.BriefTypeDaily, since, until)
 
 	// イベントを重要度でソート
 	sort.Sort(events)
@@ -83,11 +87,9 @@ func (s *OpenAISummarizer) GenerateDaily(events model.Events) (*model.Brief, err
 }
 
 // GenerateWeekly はWeekly Briefingを生成します
-func (s *OpenAISummarizer) GenerateWeekly(events model.Events) (*model.Brief, error) {
-	now := time.Now()
-	start := now.Add(-7 * 24 * time.Hour)
-
-	brief := model.NewBrief(model.BriefTypeWeekly, start, now)
+// since: 期間の開始時刻, until: 期間の終了時刻
+func (s *OpenAISummarizer) GenerateWeekly(events model.Events, since, until time.Time) (*model.Brief, error) {
+	brief := model.NewBrief(model.BriefTypeWeekly, since, until)
 
 	// イベントを重要度でソート
 	sort.Sort(events)
@@ -130,6 +132,9 @@ func (s *OpenAISummarizer) generateBriefWithOpenAI(brief *model.Brief, briefType
 	fmt.Println(prompt)
 	fmt.Println("─────────────────────────────────────────")
 	startTime := time.Now()
+
+	// レート制限対策
+	time.Sleep(1 * time.Second)
 
 	// OpenAI Chat Completion API呼び出し
 	resp, err := s.client.CreateChatCompletion(
@@ -201,7 +206,7 @@ SlackとNotionから収集した情報を、簡潔で分かりやすい音声原
 - 重要度の高い情報から順に紹介
 - 各項目は30秒以内で説明
 - 専門用語は必要に応じて説明
-- 全体で3-5分の長さ
+- 全体で5分前後の長さ
 - 音声スクリプトは自然な日本語の話し言葉で`
 	}
 
@@ -217,7 +222,7 @@ SlackとNotionから収集した情報を、簡潔で分かりやすい音声原
 - カテゴリごとに整理（Incident, Dev, Biz, Ops等）
 - 全体のトレンドや傾向を分析
 - 次週へのアクションアイテムを提案
-- 全体で5-8分の長さ
+- 全体で10分前後の長さ
 - 音声スクリプトは自然な日本語の話し言葉で`
 }
 

@@ -1,6 +1,8 @@
 package summarizer
 
 import (
+	"time"
+
 	"github.com/masumomo/voice-brief/internal/model"
 )
 
@@ -17,8 +19,10 @@ type EventSummarizer interface {
 // BriefSummarizer はイベント群からブリーフィングを生成するインターフェース
 type BriefSummarizer interface {
 	// GenerateDaily はDaily Briefingを生成します
-	GenerateDaily(events model.Events) (*model.Brief, error)
+	// since: 期間の開始時刻, until: 期間の終了時刻
+	GenerateDaily(events model.Events, since, until time.Time) (*model.Brief, error)
 
 	// GenerateWeekly はWeekly Briefingを生成します
-	GenerateWeekly(events model.Events) (*model.Brief, error)
+	// since: 期間の開始時刻, until: 期間の終了時刻
+	GenerateWeekly(events model.Events, since, until time.Time) (*model.Brief, error)
 }

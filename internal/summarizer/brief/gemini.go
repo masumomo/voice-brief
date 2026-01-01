@@ -24,19 +24,25 @@ type GeminiSummarizer struct {
 	client         *genai.Client
 }
 
+const (
+	defaultGeminiModel          = "gemini-2.0-flash-lite"
+	defaultGeminiMaxItemsDaily  = 8
+	defaultGeminiMaxItemsWeekly = 25
+)
+
 // NewGeminiSummarizer は新しいGeminiSummarizerを作成します
 func NewGeminiSummarizer(apiKey, model string, maxDaily, maxWeekly int) (*GeminiSummarizer, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("Gemini API Key が設定されていません")
 	}
 	if model == "" {
-		model = "gemini-2.0-flash-exp"
+		model = defaultGeminiModel
 	}
 	if maxDaily <= 0 {
-		maxDaily = 8
+		maxDaily = defaultGeminiMaxItemsDaily
 	}
 	if maxWeekly <= 0 {
-		maxWeekly = 25
+		maxWeekly = defaultGeminiMaxItemsWeekly
 	}
 
 	ctx := context.Background()
@@ -63,11 +69,9 @@ func (s *GeminiSummarizer) Close() error {
 }
 
 // GenerateDaily はDaily Briefingを生成します
-func (s *GeminiSummarizer) GenerateDaily(events model.Events) (*model.Brief, error) {
-	now := time.Now()
-	start := now.Add(-24 * time.Hour)
-
-	brief := model.NewBrief(model.BriefTypeDaily, start, now)
+// since: 期間の開始時刻, until: 期間の終了時刻
+func (s *GeminiSummarizer) GenerateDaily(events model.Events, since, until time.Time) (*model.Brief, error) {
+	brief := model.NewBrief(model.BriefTypeDaily, since, until)
 
 	// イベントを重要度でソート
 	sort.Sort(events)
@@ -92,11 +96,9 @@ func (s *GeminiSummarizer) GenerateDaily(events model.Events) (*model.Brief, err
 }
 
 // GenerateWeekly はWeekly Briefingを生成します
-func (s *GeminiSummarizer) GenerateWeekly(events model.Events) (*model.Brief, error) {
-	now := time.Now()
-	start := now.Add(-7 * 24 * time.Hour)
-
-	brief := model.NewBrief(model.BriefTypeWeekly, start, now)
+// since: 期間の開始時刻, until: 期間の終了時刻
+func (s *GeminiSummarizer) GenerateWeekly(events model.Events, since, until time.Time) (*model.Brief, error) {
+	brief := model.NewBrief(model.BriefTypeWeekly, since, until)
 
 	// イベントを重要度でソート
 	sort.Sort(events)
@@ -143,6 +145,9 @@ func (s *GeminiSummarizer) generateBriefWithGemini(brief *model.Brief, briefType
 	genModel.SetTemperature(0.3)
 	genModel.SetTopP(0.8)
 	genModel.SetTopK(40)
+
+	// レート制限対策
+	time.Sleep(1 * time.Second)
 
 	resp, err := genModel.GenerateContent(ctx, genai.Text(prompt))
 	elapsed := time.Since(startTime)
@@ -200,27 +205,26 @@ func (s *GeminiSummarizer) buildPrompt(brief *model.Brief, briefType model.Brief
 
 	// システム指示
 	sb.WriteString("あなたは優秀なエグゼクティブアシスタントです。\n")
-	sb.WriteString("以下のSlackメッセージとNotion更新情報から、忙しいエンジニアのための簡潔で分かりやすいブリーフィングを作成してください。\n\n")
+	sb.WriteString("以下のSlackメッセージとNotion更新情報から、簡潔で分かりやすいブリーフィングを作成してください。\n\n")
 
 	// ブリーフィングタイプに応じた指示
 	if briefType == model.BriefTypeDaily {
 		sb.WriteString("## タスク: デイリーブリーフィング作成\n")
-		sb.WriteString("過去24時間の重要な情報を要約してください。\n\n")
+		sb.WriteString("過去24時間の重要な情報をまとめてください。\n\n")
 	} else {
 		sb.WriteString("## タスク: ウィークリーブリーフィング作成\n")
-		sb.WriteString("過去1週間の重要な情報を要約してください。\n\n")
+		sb.WriteString("過去1週間の重要な情報をまとめてください。\n\n")
 	}
 
 	// 出力形式の指定
 	sb.WriteString("## 出力形式\n")
 	sb.WriteString("1. Markdown形式で見やすいブリーフィングを作成\n")
 	sb.WriteString("2. 次に「---SCRIPT---」という区切り文字を挿入\n")
-	sb.WriteString("3. 音声読み上げ用の自然な日本語スクリプトを作成（Markdownなし、箇条書き記号なし）\n\n")
+	sb.WriteString("3. 音声読み上げ用の5分程度の自然な日本語スクリプトを作成（Markdownなし、箇条書き記号なし）\n\n")
 
 	sb.WriteString("## ガイドライン\n")
 	sb.WriteString("- 重要度の高い順に整理\n")
 	sb.WriteString("- 簡潔に要点をまとめる（各項目1-2文）\n")
-	sb.WriteString("- 技術用語は適宜日本語に翻訳\n")
 	sb.WriteString("- 音声スクリプトは「おはようございます」などの挨拶から始める\n")
 	sb.WriteString("- 音声スクリプトは耳で聞いて理解しやすい自然な話し言葉で\n\n")
 

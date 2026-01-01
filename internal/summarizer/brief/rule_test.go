@@ -12,6 +12,9 @@ func TestGenerateDaily(t *testing.T) {
 
 	// テスト用イベント作成
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-24 * time.Hour)
+	until := today
 	events := model.Events{
 		{
 			ID:         "1",
@@ -37,7 +40,7 @@ func TestGenerateDaily(t *testing.T) {
 		},
 	}
 
-	brief, err := summarizer.GenerateDaily(events)
+	brief, err := summarizer.GenerateDaily(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateDaily failed: %v", err)
 	}
@@ -74,6 +77,9 @@ func TestGenerateWeekly(t *testing.T) {
 
 	// テスト用イベント作成
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-7 * 24 * time.Hour)
+	until := today
 	events := model.Events{
 		{
 			ID:         "1",
@@ -88,7 +94,7 @@ func TestGenerateWeekly(t *testing.T) {
 		},
 	}
 
-	brief, err := summarizer.GenerateWeekly(events)
+	brief, err := summarizer.GenerateWeekly(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateWeekly failed: %v", err)
 	}
@@ -118,9 +124,13 @@ func TestGenerateWeekly(t *testing.T) {
 
 func TestGenerateDaily_Empty(t *testing.T) {
 	summarizer := NewRuleSummarizer(8, 25)
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-24 * time.Hour)
+	until := today
 	events := model.Events{}
 
-	brief, err := summarizer.GenerateDaily(events)
+	brief, err := summarizer.GenerateDaily(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateDaily with empty events failed: %v", err)
 	}
@@ -136,9 +146,13 @@ func TestGenerateDaily_Empty(t *testing.T) {
 
 func TestGenerateWeekly_Empty(t *testing.T) {
 	summarizer := NewRuleSummarizer(8, 25)
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-7 * 24 * time.Hour)
+	until := today
 	events := model.Events{}
 
-	brief, err := summarizer.GenerateWeekly(events)
+	brief, err := summarizer.GenerateWeekly(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateWeekly with empty events failed: %v", err)
 	}
@@ -186,6 +200,9 @@ func TestGenerateDaily_MaxItems(t *testing.T) {
 
 	// 5件のイベントを作成
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-24 * time.Hour)
+	until := today
 	events := model.Events{
 		{ID: "1", Title: "Event 1", Importance: 90, Timestamp: now},
 		{ID: "2", Title: "Event 2", Importance: 80, Timestamp: now},
@@ -194,7 +211,7 @@ func TestGenerateDaily_MaxItems(t *testing.T) {
 		{ID: "5", Title: "Event 5", Importance: 50, Timestamp: now},
 	}
 
-	brief, err := summarizer.GenerateDaily(events)
+	brief, err := summarizer.GenerateDaily(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateDaily failed: %v", err)
 	}
@@ -216,13 +233,16 @@ func TestGenerateWeekly_MaxItems(t *testing.T) {
 	summarizer := NewRuleSummarizer(8, 2) // maxWeekly=2
 
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-7 * 24 * time.Hour)
+	until := today
 	events := model.Events{
 		{ID: "1", Title: "Event 1", Importance: 90, Timestamp: now},
 		{ID: "2", Title: "Event 2", Importance: 80, Timestamp: now},
 		{ID: "3", Title: "Event 3", Importance: 70, Timestamp: now},
 	}
 
-	brief, err := summarizer.GenerateWeekly(events)
+	brief, err := summarizer.GenerateWeekly(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateWeekly failed: %v", err)
 	}
@@ -236,13 +256,16 @@ func TestGenerateDaily_CategorySummary(t *testing.T) {
 	summarizer := NewRuleSummarizer(10, 25)
 
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-24 * time.Hour)
+	until := today
 	events := model.Events{
 		{ID: "1", Title: "Incident", Category: model.EventCategoryIncident, Importance: 90, Timestamp: now},
 		{ID: "2", Title: "Dev task", Category: model.EventCategoryDev, Importance: 80, Timestamp: now},
 		{ID: "3", Title: "Biz update", Category: model.EventCategoryBiz, Importance: 70, Timestamp: now},
 	}
 
-	brief, err := summarizer.GenerateDaily(events)
+	brief, err := summarizer.GenerateDaily(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateDaily failed: %v", err)
 	}
@@ -263,13 +286,16 @@ func TestGenerateDaily_SourceSummary(t *testing.T) {
 	summarizer := NewRuleSummarizer(10, 25)
 
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-24 * time.Hour)
+	until := today
 	events := model.Events{
 		{ID: "1", Title: "Slack msg", Source: model.EventSourceSlack, Importance: 90, Timestamp: now},
 		{ID: "2", Title: "Notion page", Source: model.EventSourceNotion, Importance: 80, Timestamp: now},
 		{ID: "3", Title: "GitHub PR", Source: model.EventSourceGitHub, Importance: 70, Timestamp: now},
 	}
 
-	brief, err := summarizer.GenerateDaily(events)
+	brief, err := summarizer.GenerateDaily(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateDaily failed: %v", err)
 	}
@@ -290,11 +316,14 @@ func TestGenerateDaily_ScriptWithIncident(t *testing.T) {
 	summarizer := NewRuleSummarizer(10, 25)
 
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-24 * time.Hour)
+	until := today
 	events := model.Events{
 		{ID: "1", Title: "障害発生", Category: model.EventCategoryIncident, Importance: 90, Timestamp: now, Location: "ops"},
 	}
 
-	brief, err := summarizer.GenerateDaily(events)
+	brief, err := summarizer.GenerateDaily(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateDaily failed: %v", err)
 	}
@@ -312,6 +341,9 @@ func TestGenerateDaily_EventWithURL(t *testing.T) {
 	summarizer := NewRuleSummarizer(10, 25)
 
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-24 * time.Hour)
+	until := today
 	events := model.Events{
 		{
 			ID:         "1",
@@ -325,7 +357,7 @@ func TestGenerateDaily_EventWithURL(t *testing.T) {
 		},
 	}
 
-	brief, err := summarizer.GenerateDaily(events)
+	brief, err := summarizer.GenerateDaily(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateDaily failed: %v", err)
 	}
@@ -343,6 +375,9 @@ func TestGenerateWeekly_TopEvents(t *testing.T) {
 	summarizer := NewRuleSummarizer(8, 25)
 
 	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	since := today.Add(-7 * 24 * time.Hour)
+	until := today
 	events := model.Events{
 		{ID: "1", Title: "Most important", Importance: 100, Timestamp: now, Location: "channel1"},
 		{ID: "2", Title: "Second", Importance: 90, Timestamp: now, Location: "channel2"},
@@ -352,7 +387,7 @@ func TestGenerateWeekly_TopEvents(t *testing.T) {
 		{ID: "6", Title: "Sixth", Importance: 50, Timestamp: now, Location: "channel6"},
 	}
 
-	brief, err := summarizer.GenerateWeekly(events)
+	brief, err := summarizer.GenerateWeekly(events, since, until)
 	if err != nil {
 		t.Fatalf("GenerateWeekly failed: %v", err)
 	}

@@ -27,7 +27,7 @@ func NewGeminiCategorizer(apiKey, modelName string) (*GeminiCategorizer, error) 
 		return nil, fmt.Errorf("Gemini API Key が設定されていません")
 	}
 	if modelName == "" {
-		modelName = "gemini-2.0-flash-exp"
+		modelName = "gemini-2.0-flash-lite"
 	}
 
 	ctx := context.Background()
@@ -61,9 +61,15 @@ func (c *GeminiCategorizer) Categorize(event *model.Event) string {
 	genModel := c.client.GenerativeModel(c.model)
 	genModel.SetTemperature(0.1) // 一貫性を重視
 
+	// レート制限対策
+	time.Sleep(1 * time.Second)
+
+	startTime := time.Now()
 	resp, err := genModel.GenerateContent(ctx, genai.Text(prompt))
+	elapsed := time.Since(startTime)
+
 	if err != nil {
-		fmt.Printf("⚠️  Gemini カテゴリ判定エラー: %v\n", err)
+		fmt.Printf("⚠️  Gemini カテゴリ判定エラー: %v (elapsed=%v)\n", err, elapsed)
 		return model.EventCategoryOther
 	}
 
@@ -79,16 +85,28 @@ func (c *GeminiCategorizer) Categorize(event *model.Event) string {
 		}
 	}
 
-	return c.parseCategory(result.String())
+	category := c.parseCategory(result.String())
+	tokens := 0
+	if resp.UsageMetadata != nil {
+		tokens = int(resp.UsageMetadata.TotalTokenCount)
+	}
+	fmt.Printf("  → %s (tokens: %d, elapsed: %v)\n", category, tokens, elapsed)
+	return category
 }
 
 // CategorizeAll は複数イベントのカテゴリを一括判定します
 func (c *GeminiCategorizer) CategorizeAll(events model.Events) {
-	for _, event := range events {
+	total := len(events)
+	fmt.Printf("🏷️  Gemini カテゴリ判定開始: %d件 (model=%s)\n", total, c.model)
+
+	for i, event := range events {
 		if event.Category == "" || event.Category == model.EventCategoryOther {
+			title := util.TruncateText(event.Title, 30)
+			fmt.Printf("[%d/%d] %s\n", i+1, total, title)
 			event.Category = c.Categorize(event)
 		}
 	}
+	fmt.Println("✅ カテゴリ判定完了")
 }
 
 // buildPrompt はカテゴリ判定用のプロンプトを構築します

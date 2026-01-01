@@ -30,11 +30,9 @@ func NewRuleSummarizer(maxDaily, maxWeekly int) *RuleSummarizer {
 }
 
 // GenerateDaily はDaily Briefingを生成します
-func (s *RuleSummarizer) GenerateDaily(events model.Events) (*model.Brief, error) {
-	now := time.Now()
-	start := now.Add(-24 * time.Hour)
-
-	brief := model.NewBrief(model.BriefTypeDaily, start, now)
+// since: 期間の開始時刻, until: 期間の終了時刻
+func (s *RuleSummarizer) GenerateDaily(events model.Events, since, until time.Time) (*model.Brief, error) {
+	brief := model.NewBrief(model.BriefTypeDaily, since, until)
 
 	// イベントを重要度でソート
 	sort.Sort(events)
@@ -56,11 +54,9 @@ func (s *RuleSummarizer) GenerateDaily(events model.Events) (*model.Brief, error
 }
 
 // GenerateWeekly はWeekly Briefingを生成します
-func (s *RuleSummarizer) GenerateWeekly(events model.Events) (*model.Brief, error) {
-	now := time.Now()
-	start := now.Add(-7 * 24 * time.Hour)
-
-	brief := model.NewBrief(model.BriefTypeWeekly, start, now)
+// since: 期間の開始時刻, until: 期間の終了時刻
+func (s *RuleSummarizer) GenerateWeekly(events model.Events, since, until time.Time) (*model.Brief, error) {
+	brief := model.NewBrief(model.BriefTypeWeekly, since, until)
 
 	// イベントを重要度でソート
 	sort.Sort(events)

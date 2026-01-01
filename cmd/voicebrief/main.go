@@ -171,13 +171,13 @@ func handleRunCommand() {
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
 	if isDaily {
-		// --daily: 過去24時間（従来の動作）
-		since = now.Add(-time.Duration(cfg.Brief.DailyWindowHours) * time.Hour)
-		until = now
+		// --daily: 前日の0時〜今日の0時（前日1日分）
+		since = today.Add(-time.Duration(cfg.Brief.DailyWindowHours) * time.Hour)
+		until = today
 	} else if isWeekly {
-		// --weekly: 過去7日間（従来の動作）
-		since = now.Add(-time.Duration(cfg.Brief.WeeklyDays*24) * time.Hour)
-		until = now
+		// --weekly: N日前の0時〜今日の0時（前日まで含む）
+		since = today.Add(-time.Duration(cfg.Brief.WeeklyDays*24) * time.Hour)
+		until = today
 	} else {
 		// --days N または デフォルト: 過去N日分（日付単位）
 		// 例: --days 1 → 昨日の0:00〜23:59:59
@@ -266,7 +266,7 @@ func handleRunCommand() {
 	// 5. ブリーフィング要約生成
 	log.Print("📝 Step 5/7: ブリーフィング要約生成中...\n")
 	log.Debug("Generating brief summary")
-	brief, err := generateBrief(cfg, events, briefType)
+	brief, err := generateBrief(cfg, events, briefType, since, until)
 	if err != nil {
 		log.Error("Failed to generate brief", map[string]interface{}{
 			"error": err.Error(),
@@ -473,7 +473,7 @@ func createEventSummarizer(cfg *config.EventSummarizerConfig) summarizer.EventSu
 }
 
 // generateBrief はブリーフィングを生成します
-func generateBrief(cfg *config.Config, events model.Events, briefType model.BriefType) (*model.Brief, error) {
+func generateBrief(cfg *config.Config, events model.Events, briefType model.BriefType, since, until time.Time) (*model.Brief, error) {
 	// Provider に応じて Summarizer を選択
 	switch cfg.BriefSummarizer.Provider {
 	case "gemini":
@@ -495,9 +495,9 @@ func generateBrief(cfg *config.Config, events model.Events, briefType model.Brie
 		defer sum.Close()
 
 		if briefType == model.BriefTypeDaily {
-			return sum.GenerateDaily(events)
+			return sum.GenerateDaily(events, since, until)
 		}
-		return sum.GenerateWeekly(events)
+		return sum.GenerateWeekly(events, since, until)
 
 	case "openai":
 		// OpenAI API Key を環境変数から取得
@@ -518,9 +518,9 @@ func generateBrief(cfg *config.Config, events model.Events, briefType model.Brie
 
 		var b *model.Brief
 		if briefType == model.BriefTypeDaily {
-			b, err = sum.GenerateDaily(events)
+			b, err = sum.GenerateDaily(events, since, until)
 		} else {
-			b, err = sum.GenerateWeekly(events)
+			b, err = sum.GenerateWeekly(events, since, until)
 		}
 
 		if err != nil {
@@ -542,9 +542,9 @@ func generateBrief(cfg *config.Config, events model.Events, briefType model.Brie
 		sum := brief.NewRuleSummarizer(cfg.Brief.MaxItemsDaily, cfg.Brief.MaxItemsWeekly)
 
 		if briefType == model.BriefTypeDaily {
-			return sum.GenerateDaily(events)
+			return sum.GenerateDaily(events, since, until)
 		}
-		return sum.GenerateWeekly(events)
+		return sum.GenerateWeekly(events, since, until)
 	}
 }
 

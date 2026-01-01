@@ -71,34 +71,34 @@ brief:
 importance:
   weights:
     # テキスト特徴量
-    text_length: 5.0         # 本文の長さ
-    title_length: 2.0        # タイトルの長さ
-    has_mention: 15.0        # @メンション有無
-    has_question: 5.0        # 疑問文か
-    has_exclamation: 3.0     # 強調表現か
-    has_url: 2.0             # URL含有
-    keyword_score: 20.0      # 重要キーワードスコア
+    text_length: 5.0 # 本文の長さ
+    title_length: 2.0 # タイトルの長さ
+    has_mention: 15.0 # @メンション有無
+    has_question: 5.0 # 疑問文か
+    has_exclamation: 3.0 # 強調表現か
+    has_url: 2.0 # URL含有
+    keyword_score: 20.0 # 重要キーワードスコア
 
     # エンゲージメント特徴量
-    comment_count: 15.0      # コメント数
-    unique_commenters: 10.0  # ユニーク投稿者数
-    total_comment_len: 5.0   # コメント総文字数
+    comment_count: 15.0 # コメント数
+    unique_commenters: 10.0 # ユニーク投稿者数
+    total_comment_len: 5.0 # コメント総文字数
 
     # カテゴリ特徴量（重要: 大きい値ほど重要度が上がる）
-    is_incident: 30.0        # 障害・インシデント
-    is_dev: 5.0              # 開発
-    is_biz: 3.0              # ビジネス
-    is_ops: 8.0              # 運用
+    is_incident: 30.0 # 障害・インシデント
+    is_dev: 5.0 # 開発
+    is_biz: 3.0 # ビジネス
+    is_ops: 8.0 # 運用
 
     # ソース特徴量
-    is_slack: 0.0            # Slackソース
-    is_notion: 2.0           # Notionソース
-    is_github: 3.0           # GitHubソース
+    is_slack: 0.0 # Slackソース
+    is_notion: 2.0 # Notionソース
+    is_github: 3.0 # GitHubソース
 
     # 時間特徴量
-    hour_of_day: 0.0         # 時間帯
-    is_business_hours: 2.0   # 営業時間内
-    is_weekday: 1.0          # 平日
+    hour_of_day: 0.0 # 時間帯
+    is_business_hours: 2.0 # 営業時間内
+    is_weekday: 1.0 # 平日
 
     # バイアス（ベーススコア）
     bias: 30.0
@@ -106,7 +106,7 @@ importance:
 # カテゴリ判定エンジン設定
 categorizer:
   provider: "rule" # "rule" | "gemini" | "openai"
-  # gemini_model: "gemini-2.0-flash-exp"  # providerがgeminiの場合のみ
+  # gemini_model: "gemini-2.0-flash"  # providerがgeminiの場合のみ
   # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini使用時の環境変数名
   # openai_model: "gpt-4o-mini"  # providerがopenaiの場合
   # openai_api_key_env: "OPENAI_API_KEY"  # OpenAI使用時の環境変数名
@@ -114,8 +114,8 @@ categorizer:
 # イベント要約エンジン設定（個々のイベントを要約）
 event_summarizer:
   provider: "rule" # "rule" | "gemini" | "openai"
-  max_summary_len: 200 # 要約の最大文字数
-  # gemini_model: "gemini-2.0-flash-exp"  # providerがgeminiの場合のみ
+  max_summary_len: 250 # 要約の最大文字数
+  # gemini_model: "gemini-2.0-flash"  # providerがgeminiの場合のみ
   # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini使用時の環境変数名
   # openai_model: "gpt-4o-mini"  # providerがopenaiの場合
   # openai_api_key_env: "OPENAI_API_KEY"  # OpenAI使用時の環境変数名
@@ -123,7 +123,7 @@ event_summarizer:
 # ブリーフィング要約エンジン設定（全イベントからブリーフィングを生成）
 brief_summarizer:
   provider: "rule" # "rule" | "gemini" | "openai"
-  # gemini_model: "gemini-2.0-flash-exp"  # providerがgeminiの場合のみ
+  # gemini_model: "gemini-2.0-flash"  # providerがgeminiの場合のみ
   # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini使用時の環境変数名
   # openai_model: "gpt-4o-mini"  # providerがopenaiの場合（gpt-4o-mini, gpt-4o, gpt-4-turbo等）
   # openai_api_key_env: "OPENAI_API_KEY"  # OpenAI使用時の環境変数名

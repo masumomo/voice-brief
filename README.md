@@ -202,7 +202,7 @@ notion:
 # 要約エンジン設定（オプション）
 summarizer:
   provider: "rule"  # "rule" | "gemini" (無料) | "openai" (従量課金)
-  # gemini_model: "gemini-2.0-flash-exp"  # Gemini使用時のモデル
+  # gemini_model: "gemini-2.0-flash-lite"  # Gemini使用時のモデル（最安）
   # gemini_api_key_env: "GEMINI_API_KEY"  # Gemini使用時
   # openai_model: "gpt-4o-mini"  # OpenAI使用時（gpt-4o-mini, gpt-4o等）
   # openai_api_key_env: "OPENAI_API_KEY"  # OpenAI使用時
@@ -286,6 +286,53 @@ cat out/daily/$(date +%Y-%m-%d).md
 
 # 音声再生
 open out/daily/$(date +%Y-%m-%d).m4a
+```
+
+### 補助スクリプト: send_brief.sh
+
+生成済みのブリーフィングファイルをSlackに送信し、音声を生成するスクリプトです。
+
+**使用タイミング:**
+
+- `voicebrief run --dry-run`で原稿を生成した後、内容を確認してから手動で送信・音声化したい場合
+- 過去に生成したブリーフィングを再送信したい場合
+
+**使い方:**
+
+```bash
+# 実行（Slackに本文を送信 + SCRIPT部分を音声化）
+./scripts/send_brief.sh out/weekly/2025-W52.md
+
+# ドライランモード（実際には送信しない）
+./scripts/send_brief.sh out/weekly/2025-W52.md --dry-run
+```
+
+**前提条件:**
+
+`.env`に以下の環境変数が必要です:
+
+```bash
+# Slack（どちらか一方）
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+# または
+VOICE_BRIEF_SLACK_TOKEN=xoxb-...
+SLACK_CHANNEL=general  # オプション（API使用時）
+
+# OpenAI TTS
+OPENAI_API_KEY=sk-...
+```
+
+**動作:**
+
+1. マークダウンファイルを`SCRIPT`区切りで分割
+2. 本文部分（`SCRIPT`より前）→ Slackに送信
+3. スクリプト部分（`SCRIPT`より後）→ OpenAI TTS（`nova`音声）で音声化
+4. 音声ファイルを同じディレクトリに`.mp3`として保存
+
+**出力例:**
+
+```
+out/weekly/2025-W52.md → out/weekly/2025-W52.mp3
 ```
 
 ## CLI コマンド

@@ -24,11 +24,11 @@ func TestNewGeminiSummarizer(t *testing.T) {
 		{
 			name:       "有効なパラメータ",
 			apiKey:     "test-api-key",
-			model:      "gemini-2.0-flash-exp",
+			model:      "gemini-2.0-flash-lite",
 			maxDaily:   10,
 			maxWeekly:  30,
 			wantErr:    false,
-			wantModel:  "gemini-2.0-flash-exp",
+			wantModel:  "gemini-2.0-flash-lite",
 			wantDaily:  10,
 			wantWeekly: 30,
 		},
@@ -39,25 +39,25 @@ func TestNewGeminiSummarizer(t *testing.T) {
 			maxDaily:   8,
 			maxWeekly:  25,
 			wantErr:    false,
-			wantModel:  "gemini-2.0-flash-exp",
+			wantModel:  "gemini-2.0-flash-lite",
 			wantDaily:  8,
 			wantWeekly: 25,
 		},
 		{
 			name:       "デフォルト最大値",
 			apiKey:     "test-api-key",
-			model:      "gemini-2.0-flash-exp",
+			model:      "gemini-2.0-flash-lite",
 			maxDaily:   0,
 			maxWeekly:  0,
 			wantErr:    false,
-			wantModel:  "gemini-2.0-flash-exp",
+			wantModel:  "gemini-2.0-flash-lite",
 			wantDaily:  8,
 			wantWeekly: 25,
 		},
 		{
 			name:    "APIキーなし",
 			apiKey:  "",
-			model:   "gemini-2.0-flash-exp",
+			model:   "gemini-2.0-flash-lite",
 			wantErr: true,
 		},
 	}
@@ -250,7 +250,7 @@ func TestBuildPrompt(t *testing.T) {
 	// ダミーのSummarizerを作成（API呼び出しはしない）
 	s := &GeminiSummarizer{
 		apiKey:         "dummy-key",
-		model:          "gemini-2.0-flash-exp",
+		model:          "gemini-2.0-flash-lite",
 		maxItemsDaily:  8,
 		maxItemsWeekly: 25,
 	}

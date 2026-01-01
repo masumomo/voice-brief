@@ -21,16 +21,21 @@ type GeminiEventSummarizer struct {
 	client        *genai.Client
 }
 
+const (
+	defaultGeminiModel         = "gemini-2.0-flash-lite"
+	defaultGeminiMaxSummaryLen = 200
+)
+
 // NewGeminiEventSummarizer は新しいGeminiEventSummarizerを作成します
 func NewGeminiEventSummarizer(apiKey, modelName string, maxSummaryLen int) (*GeminiEventSummarizer, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("Gemini API Key が設定されていません")
 	}
 	if modelName == "" {
-		modelName = "gemini-2.0-flash-exp"
+		modelName = defaultGeminiModel
 	}
 	if maxSummaryLen <= 0 {
-		maxSummaryLen = 200
+		maxSummaryLen = defaultGeminiMaxSummaryLen
 	}
 
 	ctx := context.Background()
@@ -80,9 +85,16 @@ func (s *GeminiEventSummarizer) Summarize(event *model.Event) error {
 	genModel := s.client.GenerativeModel(s.model)
 	genModel.SetTemperature(0.3)
 
+	// レート制限対策
+	time.Sleep(1 * time.Second)
+
+	startTime := time.Now()
 	resp, err := genModel.GenerateContent(ctx, genai.Text(prompt))
+	elapsed := time.Since(startTime)
+
 	if err != nil {
 		// エラー時はルールベースのフォールバック
+		fmt.Printf("  ⚠️ エラー: %v (elapsed=%v)\n", err, elapsed)
 		event.Summary = s.fallbackSummary(event)
 		return nil
 	}
@@ -106,17 +118,28 @@ func (s *GeminiEventSummarizer) Summarize(event *model.Event) error {
 	}
 
 	event.Summary = summary
+	tokens := 0
+	if resp.UsageMetadata != nil {
+		tokens = int(resp.UsageMetadata.TotalTokenCount)
+	}
+	fmt.Printf("  → %d文字 (tokens: %d, elapsed: %v)\n", len(summary), tokens, elapsed)
 	return nil
 }
 
 // SummarizeAll は複数イベントを一括要約します
 func (s *GeminiEventSummarizer) SummarizeAll(events model.Events) error {
-	for _, event := range events {
+	total := len(events)
+	fmt.Printf("📝 Gemini イベント要約開始: %d件 (model=%s)\n", total, s.model)
+
+	for i, event := range events {
+		title := util.TruncateText(event.Title, 30)
+		fmt.Printf("[%d/%d] %s\n", i+1, total, title)
 		if err := s.Summarize(event); err != nil {
 			// エラーでも継続（Best Effort）
 			continue
 		}
 	}
+	fmt.Println("✅ イベント要約完了")
 	return nil
 }
 

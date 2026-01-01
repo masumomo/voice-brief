@@ -20,16 +20,21 @@ type OpenAIEventSummarizer struct {
 	client        *openai.Client
 }
 
+const (
+	defaultOpenAIModel         = "gpt-4o-mini" // コスト効率重視
+	defaultOpenAIMaxSummaryLen = 200
+)
+
 // NewOpenAIEventSummarizer は新しいOpenAIEventSummarizerを作成します
 func NewOpenAIEventSummarizer(apiKey, modelName string, maxSummaryLen int) (*OpenAIEventSummarizer, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("OpenAI API Key が設定されていません")
 	}
 	if modelName == "" {
-		modelName = "gpt-4o-mini" // コスト効率重視
+		modelName = defaultOpenAIModel
 	}
 	if maxSummaryLen <= 0 {
-		maxSummaryLen = 200
+		maxSummaryLen = defaultOpenAIMaxSummaryLen
 	}
 
 	client := openai.NewClient(apiKey)
@@ -69,6 +74,10 @@ func (s *OpenAIEventSummarizer) Summarize(event *model.Event) error {
 
 	userPrompt := s.buildPrompt(event)
 
+	// レート制限対策
+	time.Sleep(1 * time.Second)
+
+	startTime := time.Now()
 	resp, err := s.client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
@@ -88,8 +97,11 @@ func (s *OpenAIEventSummarizer) Summarize(event *model.Event) error {
 		},
 	)
 
+	elapsed := time.Since(startTime)
+
 	if err != nil {
 		// エラー時はルールベースのフォールバック
+		fmt.Printf("  ⚠️ エラー: %v (elapsed=%v)\n", err, elapsed)
 		event.Summary = s.fallbackSummary(event)
 		return nil
 	}
@@ -105,17 +117,24 @@ func (s *OpenAIEventSummarizer) Summarize(event *model.Event) error {
 	}
 
 	event.Summary = summary
+	fmt.Printf("  → %d文字 (tokens: %d, elapsed: %v)\n", len(summary), resp.Usage.TotalTokens, elapsed)
 	return nil
 }
 
 // SummarizeAll は複数イベントを一括要約します
 func (s *OpenAIEventSummarizer) SummarizeAll(events model.Events) error {
-	for _, event := range events {
+	total := len(events)
+	fmt.Printf("📝 OpenAI イベント要約開始: %d件 (model=%s)\n", total, s.model)
+
+	for i, event := range events {
+		title := util.TruncateText(event.Title, 30)
+		fmt.Printf("[%d/%d] %s\n", i+1, total, title)
 		if err := s.Summarize(event); err != nil {
 			// エラーでも継続（Best Effort）
 			continue
 		}
 	}
+	fmt.Println("✅ イベント要約完了")
 	return nil
 }
 
