@@ -66,7 +66,42 @@ brief:
   max_items_weekly: 25
 
 # 重要度計算エンジン設定（特徴量ベース）
-# 20個の特徴量（テキスト長、コメント数、カテゴリ等）を使用して重要度を計算
+# 20個の特徴量を使用してイベントの重要度を0-100で計算
+# 各重みを省略するとデフォルト値が使用されます
+importance:
+  weights:
+    # テキスト特徴量
+    text_length: 5.0         # 本文の長さ
+    title_length: 2.0        # タイトルの長さ
+    has_mention: 15.0        # @メンション有無
+    has_question: 5.0        # 疑問文か
+    has_exclamation: 3.0     # 強調表現か
+    has_url: 2.0             # URL含有
+    keyword_score: 20.0      # 重要キーワードスコア
+
+    # エンゲージメント特徴量
+    comment_count: 15.0      # コメント数
+    unique_commenters: 10.0  # ユニーク投稿者数
+    total_comment_len: 5.0   # コメント総文字数
+
+    # カテゴリ特徴量（重要: 大きい値ほど重要度が上がる）
+    is_incident: 30.0        # 障害・インシデント
+    is_dev: 5.0              # 開発
+    is_biz: 3.0              # ビジネス
+    is_ops: 8.0              # 運用
+
+    # ソース特徴量
+    is_slack: 0.0            # Slackソース
+    is_notion: 2.0           # Notionソース
+    is_github: 3.0           # GitHubソース
+
+    # 時間特徴量
+    hour_of_day: 0.0         # 時間帯
+    is_business_hours: 2.0   # 営業時間内
+    is_weekday: 1.0          # 平日
+
+    # バイアス（ベーススコア）
+    bias: 30.0
 
 # カテゴリ判定エンジン設定
 categorizer:

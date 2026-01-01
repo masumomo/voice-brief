@@ -233,7 +233,8 @@ func handleRunCommand() {
 
 	// 2. 重要度計算（特徴量ベース）
 	fmt.Println("📊 Step 2/7: 重要度計算中...")
-	calculator := importance.NewFeatureBasedCalculator(nil)
+	weights := createImportanceWeights(&cfg.Importance)
+	calculator := importance.NewFeatureBasedCalculator(weights)
 	importance.CalculateAll(events, calculator)
 	log.Info("Importance calculated", map[string]interface{}{
 		"method": "feature-based",
@@ -403,6 +404,34 @@ func createCategorizer(cfg *config.CategorizerConfig) categorizer.Categorizer {
 	default:
 		return categorizer.NewRuleCategorizer()
 	}
+}
+
+// createImportanceWeights は設定に基づいて重要度計算の重みを作成します
+func createImportanceWeights(cfg *config.ImportanceConfig) *importance.FeatureWeights {
+	w := &cfg.Weights
+	return importance.NewWeightsFromConfig(&importance.ConfigWeights{
+		TextLength:       w.TextLength,
+		TitleLength:      w.TitleLength,
+		HasMention:       w.HasMention,
+		HasQuestion:      w.HasQuestion,
+		HasExclamation:   w.HasExclamation,
+		HasURL:           w.HasURL,
+		KeywordScore:     w.KeywordScore,
+		CommentCount:     w.CommentCount,
+		UniqueCommenters: w.UniqueCommenters,
+		TotalCommentLen:  w.TotalCommentLen,
+		IsIncident:       w.IsIncident,
+		IsDev:            w.IsDev,
+		IsBiz:            w.IsBiz,
+		IsOps:            w.IsOps,
+		IsSlack:          w.IsSlack,
+		IsNotion:         w.IsNotion,
+		IsGitHub:         w.IsGitHub,
+		HourOfDay:        w.HourOfDay,
+		IsBusinessHours:  w.IsBusinessHours,
+		IsWeekday:        w.IsWeekday,
+		Bias:             w.Bias,
+	})
 }
 
 // createEventSummarizer は設定に基づいてEventSummarizerを作成します

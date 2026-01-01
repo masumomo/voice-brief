@@ -16,6 +16,7 @@ type Config struct {
 	Notion          NotionConfig          `yaml:"notion"`
 	GitHub          GitHubConfig          `yaml:"github"`
 	Brief           BriefConfig           `yaml:"brief"`
+	Importance      ImportanceConfig      `yaml:"importance"`
 	Categorizer     CategorizerConfig     `yaml:"categorizer"`
 	EventSummarizer EventSummarizerConfig `yaml:"event_summarizer"`
 	BriefSummarizer BriefSummarizerConfig `yaml:"brief_summarizer"`
@@ -97,6 +98,109 @@ type BriefConfig struct {
 	WeeklyDays       int `yaml:"weekly_days"`
 	MaxItemsDaily    int `yaml:"max_items_daily"`
 	MaxItemsWeekly   int `yaml:"max_items_weekly"`
+}
+
+// ImportanceConfig は重要度計算の重み設定
+type ImportanceConfig struct {
+	Weights ImportanceWeights `yaml:"weights"`
+}
+
+// ImportanceWeights は各特徴量の重み
+type ImportanceWeights struct {
+	// テキスト特徴量
+	TextLength     *float64 `yaml:"text_length"`
+	TitleLength    *float64 `yaml:"title_length"`
+	HasMention     *float64 `yaml:"has_mention"`
+	HasQuestion    *float64 `yaml:"has_question"`
+	HasExclamation *float64 `yaml:"has_exclamation"`
+	HasURL         *float64 `yaml:"has_url"`
+	KeywordScore   *float64 `yaml:"keyword_score"`
+
+	// エンゲージメント特徴量
+	CommentCount     *float64 `yaml:"comment_count"`
+	UniqueCommenters *float64 `yaml:"unique_commenters"`
+	TotalCommentLen  *float64 `yaml:"total_comment_len"`
+
+	// カテゴリ特徴量
+	IsIncident *float64 `yaml:"is_incident"`
+	IsDev      *float64 `yaml:"is_dev"`
+	IsBiz      *float64 `yaml:"is_biz"`
+	IsOps      *float64 `yaml:"is_ops"`
+
+	// ソース特徴量
+	IsSlack  *float64 `yaml:"is_slack"`
+	IsNotion *float64 `yaml:"is_notion"`
+	IsGitHub *float64 `yaml:"is_github"`
+
+	// 時間特徴量
+	HourOfDay       *float64 `yaml:"hour_of_day"`
+	IsBusinessHours *float64 `yaml:"is_business_hours"`
+	IsWeekday       *float64 `yaml:"is_weekday"`
+
+	// バイアス
+	Bias *float64 `yaml:"bias"`
+}
+
+// GetWithDefaults はデフォルト値を適用した重みを返します
+func (w *ImportanceWeights) GetWithDefaults() *ImportanceWeights {
+	result := &ImportanceWeights{}
+
+	// デフォルト値
+	defaults := map[string]float64{
+		"text_length":       5.0,
+		"title_length":      2.0,
+		"has_mention":       15.0,
+		"has_question":      5.0,
+		"has_exclamation":   3.0,
+		"has_url":           2.0,
+		"keyword_score":     20.0,
+		"comment_count":     15.0,
+		"unique_commenters": 10.0,
+		"total_comment_len": 5.0,
+		"is_incident":       30.0,
+		"is_dev":            5.0,
+		"is_biz":            3.0,
+		"is_ops":            8.0,
+		"is_slack":          0.0,
+		"is_notion":         2.0,
+		"is_github":         3.0,
+		"hour_of_day":       0.0,
+		"is_business_hours": 2.0,
+		"is_weekday":        1.0,
+		"bias":              30.0,
+	}
+
+	result.TextLength = getOrDefault(w.TextLength, defaults["text_length"])
+	result.TitleLength = getOrDefault(w.TitleLength, defaults["title_length"])
+	result.HasMention = getOrDefault(w.HasMention, defaults["has_mention"])
+	result.HasQuestion = getOrDefault(w.HasQuestion, defaults["has_question"])
+	result.HasExclamation = getOrDefault(w.HasExclamation, defaults["has_exclamation"])
+	result.HasURL = getOrDefault(w.HasURL, defaults["has_url"])
+	result.KeywordScore = getOrDefault(w.KeywordScore, defaults["keyword_score"])
+	result.CommentCount = getOrDefault(w.CommentCount, defaults["comment_count"])
+	result.UniqueCommenters = getOrDefault(w.UniqueCommenters, defaults["unique_commenters"])
+	result.TotalCommentLen = getOrDefault(w.TotalCommentLen, defaults["total_comment_len"])
+	result.IsIncident = getOrDefault(w.IsIncident, defaults["is_incident"])
+	result.IsDev = getOrDefault(w.IsDev, defaults["is_dev"])
+	result.IsBiz = getOrDefault(w.IsBiz, defaults["is_biz"])
+	result.IsOps = getOrDefault(w.IsOps, defaults["is_ops"])
+	result.IsSlack = getOrDefault(w.IsSlack, defaults["is_slack"])
+	result.IsNotion = getOrDefault(w.IsNotion, defaults["is_notion"])
+	result.IsGitHub = getOrDefault(w.IsGitHub, defaults["is_github"])
+	result.HourOfDay = getOrDefault(w.HourOfDay, defaults["hour_of_day"])
+	result.IsBusinessHours = getOrDefault(w.IsBusinessHours, defaults["is_business_hours"])
+	result.IsWeekday = getOrDefault(w.IsWeekday, defaults["is_weekday"])
+	result.Bias = getOrDefault(w.Bias, defaults["bias"])
+
+	return result
+}
+
+// getOrDefault はポインタがnilの場合デフォルト値を返します
+func getOrDefault(ptr *float64, defaultVal float64) *float64 {
+	if ptr != nil {
+		return ptr
+	}
+	return &defaultVal
 }
 
 // CategorizerConfig はカテゴリ判定エンジン設定

@@ -92,6 +92,73 @@ func DefaultWeights() *FeatureWeights {
 	}
 }
 
+// WeightsFromConfig は設定ファイルの重みからFeatureWeightsを作成します
+// nilの項目はデフォルト値が使用されます
+type ConfigWeights struct {
+	TextLength       *float64
+	TitleLength      *float64
+	HasMention       *float64
+	HasQuestion      *float64
+	HasExclamation   *float64
+	HasURL           *float64
+	KeywordScore     *float64
+	CommentCount     *float64
+	UniqueCommenters *float64
+	TotalCommentLen  *float64
+	IsIncident       *float64
+	IsDev            *float64
+	IsBiz            *float64
+	IsOps            *float64
+	IsSlack          *float64
+	IsNotion         *float64
+	IsGitHub         *float64
+	HourOfDay        *float64
+	IsBusinessHours  *float64
+	IsWeekday        *float64
+	Bias             *float64
+}
+
+// NewWeightsFromConfig は設定値からFeatureWeightsを作成します
+func NewWeightsFromConfig(cfg *ConfigWeights) *FeatureWeights {
+	if cfg == nil {
+		return DefaultWeights()
+	}
+
+	defaults := DefaultWeights()
+
+	return &FeatureWeights{
+		TextLength:       valueOrDefault(cfg.TextLength, defaults.TextLength),
+		TitleLength:      valueOrDefault(cfg.TitleLength, defaults.TitleLength),
+		HasMention:       valueOrDefault(cfg.HasMention, defaults.HasMention),
+		HasQuestion:      valueOrDefault(cfg.HasQuestion, defaults.HasQuestion),
+		HasExclamation:   valueOrDefault(cfg.HasExclamation, defaults.HasExclamation),
+		HasURL:           valueOrDefault(cfg.HasURL, defaults.HasURL),
+		KeywordScore:     valueOrDefault(cfg.KeywordScore, defaults.KeywordScore),
+		CommentCount:     valueOrDefault(cfg.CommentCount, defaults.CommentCount),
+		UniqueCommenters: valueOrDefault(cfg.UniqueCommenters, defaults.UniqueCommenters),
+		TotalCommentLen:  valueOrDefault(cfg.TotalCommentLen, defaults.TotalCommentLen),
+		IsIncident:       valueOrDefault(cfg.IsIncident, defaults.IsIncident),
+		IsDev:            valueOrDefault(cfg.IsDev, defaults.IsDev),
+		IsBiz:            valueOrDefault(cfg.IsBiz, defaults.IsBiz),
+		IsOps:            valueOrDefault(cfg.IsOps, defaults.IsOps),
+		IsSlack:          valueOrDefault(cfg.IsSlack, defaults.IsSlack),
+		IsNotion:         valueOrDefault(cfg.IsNotion, defaults.IsNotion),
+		IsGitHub:         valueOrDefault(cfg.IsGitHub, defaults.IsGitHub),
+		HourOfDay:        valueOrDefault(cfg.HourOfDay, defaults.HourOfDay),
+		IsBusinessHours:  valueOrDefault(cfg.IsBusinessHours, defaults.IsBusinessHours),
+		IsWeekday:        valueOrDefault(cfg.IsWeekday, defaults.IsWeekday),
+		Bias:             valueOrDefault(cfg.Bias, defaults.Bias),
+	}
+}
+
+// valueOrDefault はポインタがnilの場合デフォルト値を返します
+func valueOrDefault(ptr *float64, defaultVal float64) float64 {
+	if ptr != nil {
+		return *ptr
+	}
+	return defaultVal
+}
+
 // FeatureBasedCalculator は特徴量ベースの重要度計算
 type FeatureBasedCalculator struct {
 	weights          *FeatureWeights

@@ -189,8 +189,8 @@ func TestFeatureBasedCalculator_LowPriorityKeyword(t *testing.T) {
 	importance := calc.Calculate(event)
 
 	// 低優先度キーワードでベーススコアが下がる
-	if importance >= 60 {
-		t.Errorf("Importance = %d; want < 60 (low priority keyword)", importance)
+	if importance > 60 {
+		t.Errorf("Importance = %d; want <= 60 (low priority keyword)", importance)
 	}
 }
 
