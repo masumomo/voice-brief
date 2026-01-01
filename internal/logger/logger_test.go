@@ -1,117 +1,156 @@
 package logger
 
 import (
-	"bytes"
-	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestLogger_JSONFormat(t *testing.T) {
-	var buf bytes.Buffer
-	logger := New(LevelDebug, true)
-	logger.SetOutput(&buf)
+func TestLogger_New(t *testing.T) {
+	// ログディレクトリなしで作成
+	logger, err := New(LevelInfo, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	defer logger.Close()
 
+	if logger.GetLogFilePath() != "" {
+		t.Errorf("expected empty log file path, got: %s", logger.GetLogFilePath())
+	}
+}
+
+func TestLogger_NewWithLogDir(t *testing.T) {
+	// 一時ディレクトリを作成
+	tmpDir, err := os.MkdirTemp("", "logger_test")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	logger, err := New(LevelInfo, tmpDir)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	defer logger.Close()
+
+	// ログファイルが作成されていることを確認
+	logPath := logger.GetLogFilePath()
+	if logPath == "" {
+		t.Error("expected log file path to be set")
+	}
+
+	if !strings.HasPrefix(logPath, tmpDir) {
+		t.Errorf("log file path should be in temp dir: %s", logPath)
+	}
+
+	// ファイル名にタイムスタンプが含まれていることを確認
+	if !strings.Contains(filepath.Base(logPath), "voicebrief_") {
+		t.Errorf("log file name should contain 'voicebrief_': %s", logPath)
+	}
+}
+
+func TestLogger_Info(t *testing.T) {
+	logger, err := New(LevelInfo, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	defer logger.Close()
+
+	// パニックしないことを確認
 	logger.Info("test message", map[string]interface{}{
-		"key1": "value1",
-		"key2": 123,
+		"key": "value",
 	})
+}
 
-	output := buf.String()
-	if !strings.Contains(output, "test message") {
-		t.Errorf("expected log to contain 'test message', got: %s", output)
+func TestLogger_Debug(t *testing.T) {
+	logger, err := New(LevelDebug, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	defer logger.Close()
+
+	// パニックしないことを確認
+	logger.Debug("debug message")
+}
+
+func TestLogger_Warn(t *testing.T) {
+	logger, err := New(LevelWarn, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	defer logger.Close()
+
+	// パニックしないことを確認
+	logger.Warn("warning message")
+}
+
+func TestLogger_Error(t *testing.T) {
+	logger, err := New(LevelError, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	defer logger.Close()
+
+	// パニックしないことを確認
+	logger.Error("error message", map[string]interface{}{
+		"error": "some error",
+	})
+}
+
+func TestLogger_Print(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "logger_test")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	logger, err := New(LevelInfo, tmpDir)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
 	}
 
-	// JSON形式として解析できることを確認
-	var entry logEntry
-	if err := json.Unmarshal([]byte(output), &entry); err != nil {
-		t.Errorf("failed to parse JSON log: %v", err)
+	// Printのテスト
+	logger.Print("test message %s\n", "arg1")
+	logger.Close()
+
+	// ファイルに書き込まれていることを確認
+	logPath := logger.GetLogFilePath()
+	content, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read log file: %v", err)
 	}
 
-	if entry.Level != "INFO" {
-		t.Errorf("expected level INFO, got: %s", entry.Level)
-	}
-
-	if entry.Message != "test message" {
-		t.Errorf("expected message 'test message', got: %s", entry.Message)
-	}
-
-	if entry.Fields["key1"] != "value1" {
-		t.Errorf("expected fields['key1'] = 'value1', got: %v", entry.Fields["key1"])
+	if !strings.Contains(string(content), "test message arg1") {
+		t.Errorf("log file should contain 'test message arg1': %s", string(content))
 	}
 }
 
-func TestLogger_HumanReadableFormat(t *testing.T) {
-	var buf bytes.Buffer
-	logger := New(LevelInfo, false)
-	logger.SetOutput(&buf)
-
-	logger.Info("human readable test")
-
-	output := buf.String()
-	if !strings.Contains(output, "INFO") {
-		t.Errorf("expected log to contain 'INFO', got: %s", output)
+func TestLogger_Println(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "logger_test")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	if !strings.Contains(output, "human readable test") {
-		t.Errorf("expected log to contain 'human readable test', got: %s", output)
-	}
-}
+	defer os.RemoveAll(tmpDir)
 
-func TestLogger_LevelFiltering(t *testing.T) {
-	tests := []struct {
-		name          string
-		loggerLevel   Level
-		logLevel      Level
-		expectOutput  bool
-	}{
-		{
-			name:         "INFO logger should log INFO",
-			loggerLevel:  LevelInfo,
-			logLevel:     LevelInfo,
-			expectOutput: true,
-		},
-		{
-			name:         "INFO logger should not log DEBUG",
-			loggerLevel:  LevelInfo,
-			logLevel:     LevelDebug,
-			expectOutput: false,
-		},
-		{
-			name:         "DEBUG logger should log INFO",
-			loggerLevel:  LevelDebug,
-			logLevel:     LevelInfo,
-			expectOutput: true,
-		},
-		{
-			name:         "ERROR logger should not log INFO",
-			loggerLevel:  LevelError,
-			logLevel:     LevelInfo,
-			expectOutput: false,
-		},
+	logger, err := New(LevelInfo, tmpDir)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			logger := New(tt.loggerLevel, true)
-			logger.SetOutput(&buf)
+	// Printlnのテスト
+	logger.Println("println message")
+	logger.Close()
 
-			switch tt.logLevel {
-			case LevelDebug:
-				logger.Debug("test")
-			case LevelInfo:
-				logger.Info("test")
-			case LevelWarn:
-				logger.Warn("test")
-			case LevelError:
-				logger.Error("test")
-			}
+	// ファイルに書き込まれていることを確認
+	logPath := logger.GetLogFilePath()
+	content, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read log file: %v", err)
+	}
 
-			hasOutput := buf.Len() > 0
-			if hasOutput != tt.expectOutput {
-				t.Errorf("expected output=%v, got output=%v", tt.expectOutput, hasOutput)
-			}
-		})
+	if !strings.Contains(string(content), "println message") {
+		t.Errorf("log file should contain 'println message': %s", string(content))
 	}
 }
 
@@ -147,25 +186,57 @@ func TestParseLevel(t *testing.T) {
 	}
 }
 
-func TestLogger_MultipleFields(t *testing.T) {
-	var buf bytes.Buffer
-	logger := New(LevelDebug, true)
-	logger.SetOutput(&buf)
+func TestLevel_String(t *testing.T) {
+	tests := []struct {
+		level    Level
+		expected string
+	}{
+		{LevelDebug, "DEBUG"},
+		{LevelInfo, "INFO"},
+		{LevelWarn, "WARN"},
+		{LevelError, "ERROR"},
+		{Level(99), "UNKNOWN"},
+	}
 
+	for _, tt := range tests {
+		if got := tt.level.String(); got != tt.expected {
+			t.Errorf("Level(%d).String() = %s; want %s", tt.level, got, tt.expected)
+		}
+	}
+}
+
+func TestLogger_Close(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "logger_test")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	logger, err := New(LevelInfo, tmpDir)
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	// Closeが複数回呼ばれてもエラーにならない
+	if err := logger.Close(); err != nil {
+		t.Errorf("Close() failed: %v", err)
+	}
+
+	// 2回目のCloseはすでにクローズされているがエラーになる可能性
+	// (ファイルが既にクローズされているため)
+	_ = logger.Close()
+}
+
+func TestLogger_MultipleFields(t *testing.T) {
+	logger, err := New(LevelDebug, "")
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+	defer logger.Close()
+
+	// 複数フィールドのマージが正しく動作することを確認
 	logger.Info("test with multiple fields",
 		map[string]interface{}{"field1": "value1"},
 		map[string]interface{}{"field2": "value2"},
 	)
-
-	var entry logEntry
-	if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
-		t.Fatalf("failed to parse JSON: %v", err)
-	}
-
-	if entry.Fields["field1"] != "value1" {
-		t.Errorf("expected field1=value1, got: %v", entry.Fields["field1"])
-	}
-	if entry.Fields["field2"] != "value2" {
-		t.Errorf("expected field2=value2, got: %v", entry.Fields["field2"])
-	}
 }

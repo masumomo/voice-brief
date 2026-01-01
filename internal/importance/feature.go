@@ -1,6 +1,7 @@
 package importance
 
 import (
+	"fmt"
 	"math"
 	"strings"
 
@@ -252,28 +253,36 @@ func (c *FeatureBasedCalculator) Calculate(event *model.Event) int {
 	f := c.ExtractFeatures(event)
 	w := c.weights
 
+	// 各特徴量の寄与を計算
+	contributions := map[string]float64{
+		"bias":              w.Bias,
+		"text_length":       w.TextLength * f.TextLength,
+		"title_length":      w.TitleLength * f.TitleLength,
+		"has_mention":       w.HasMention * f.HasMention,
+		"has_question":      w.HasQuestion * f.HasQuestion,
+		"has_exclamation":   w.HasExclamation * f.HasExclamation,
+		"has_url":           w.HasURL * f.HasURL,
+		"keyword_score":     w.KeywordScore * f.KeywordScore,
+		"comment_count":     w.CommentCount * f.CommentCount,
+		"unique_commenters": w.UniqueCommenters * f.UniqueCommenters,
+		"total_comment_len": w.TotalCommentLen * f.TotalCommentLen,
+		"is_incident":       w.IsIncident * f.IsIncident,
+		"is_dev":            w.IsDev * f.IsDev,
+		"is_biz":            w.IsBiz * f.IsBiz,
+		"is_ops":            w.IsOps * f.IsOps,
+		"is_slack":          w.IsSlack * f.IsSlack,
+		"is_notion":         w.IsNotion * f.IsNotion,
+		"is_github":         w.IsGitHub * f.IsGitHub,
+		"hour_of_day":       w.HourOfDay * f.HourOfDay,
+		"is_business_hours": w.IsBusinessHours * f.IsBusinessHours,
+		"is_weekday":        w.IsWeekday * f.IsWeekday,
+	}
+
 	// 線形結合でスコア計算
-	score := w.Bias +
-		w.TextLength*f.TextLength +
-		w.TitleLength*f.TitleLength +
-		w.HasMention*f.HasMention +
-		w.HasQuestion*f.HasQuestion +
-		w.HasExclamation*f.HasExclamation +
-		w.HasURL*f.HasURL +
-		w.KeywordScore*f.KeywordScore +
-		w.CommentCount*f.CommentCount +
-		w.UniqueCommenters*f.UniqueCommenters +
-		w.TotalCommentLen*f.TotalCommentLen +
-		w.IsIncident*f.IsIncident +
-		w.IsDev*f.IsDev +
-		w.IsBiz*f.IsBiz +
-		w.IsOps*f.IsOps +
-		w.IsSlack*f.IsSlack +
-		w.IsNotion*f.IsNotion +
-		w.IsGitHub*f.IsGitHub +
-		w.HourOfDay*f.HourOfDay +
-		w.IsBusinessHours*f.IsBusinessHours +
-		w.IsWeekday*f.IsWeekday
+	score := 0.0
+	for _, contrib := range contributions {
+		score += contrib
+	}
 
 	// 0-100の範囲にクリップ
 	if score < 0 {
@@ -283,7 +292,47 @@ func (c *FeatureBasedCalculator) Calculate(event *model.Event) int {
 		score = 100
 	}
 
+	// 重要な寄与をRefsに保存（0より大きいもののみ）
+	if event.Refs == nil {
+		event.Refs = make(map[string]string)
+	}
+	event.Refs["importance_breakdown"] = formatContributions(contributions)
+
 	return int(score)
+}
+
+// formatContributions は寄与度を文字列にフォーマットします
+func formatContributions(contributions map[string]float64) string {
+	// 寄与度が大きい順にソート
+	type kv struct {
+		key   string
+		value float64
+	}
+	var sorted []kv
+	for k, v := range contributions {
+		if v > 0.1 { // 0.1以上の寄与のみ
+			sorted = append(sorted, kv{k, v})
+		}
+	}
+
+	// 寄与度でソート（降順）
+	for i := 0; i < len(sorted); i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[j].value > sorted[i].value {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+
+	// フォーマット
+	var result string
+	for i, item := range sorted {
+		if i > 0 {
+			result += ", "
+		}
+		result += fmt.Sprintf("%s:%.1f", item.key, item.value)
+	}
+	return result
 }
 
 // GetFeatureVector は特徴量をスライスとして返します（デバッグ/可視化用）

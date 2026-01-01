@@ -1,6 +1,7 @@
 package importance
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -296,6 +297,41 @@ func TestFeatureBasedCalculator_ExtractFeatures(t *testing.T) {
 	// コメント数 > 0
 	if features.CommentCount <= 0 {
 		t.Errorf("CommentCount = %f; want > 0", features.CommentCount)
+	}
+}
+
+func TestFeatureBasedCalculator_StoresBreakdownInRefs(t *testing.T) {
+	calc := NewFeatureBasedCalculator(nil)
+	event := &model.Event{
+		Title:     "緊急：障害発生",
+		Body:      "@channel 本番環境で障害",
+		Source:    model.EventSourceSlack,
+		Category:  model.EventCategoryIncident,
+		Timestamp: time.Now(),
+	}
+
+	_ = calc.Calculate(event)
+
+	// Refsにimportance_breakdownが保存されている
+	if event.Refs == nil {
+		t.Fatal("event.Refs should not be nil after Calculate")
+	}
+
+	breakdown, ok := event.Refs["importance_breakdown"]
+	if !ok {
+		t.Fatal("importance_breakdown should be stored in event.Refs")
+	}
+
+	if breakdown == "" {
+		t.Error("importance_breakdown should not be empty")
+	}
+
+	// biasとis_incidentが含まれているはず
+	if !strings.Contains(breakdown, "bias") {
+		t.Errorf("breakdown should contain 'bias': %s", breakdown)
+	}
+	if !strings.Contains(breakdown, "is_incident") {
+		t.Errorf("breakdown should contain 'is_incident': %s", breakdown)
 	}
 }
 

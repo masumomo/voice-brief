@@ -21,7 +21,9 @@
       "Bash(git add:*)",
       "Bash(go tool cover:*)",
       "Bash(awk:*)",
-      "Bash(git tag -a:*)"
+      "Bash(git tag -a:*)",
+      "WebSearch",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

@@ -150,13 +150,19 @@ func handleRunCommand() {
 		cfg.App.LogLevel = logLevel
 	}
 
-	// ロガー初期化
+	// ロガー初期化（stdout + .log/配下にファイル出力）
 	level, err := logger.ParseLevel(cfg.App.LogLevel)
 	if err != nil {
 		fmt.Printf("❌ エラー: 無効なログレベル: %v\n", err)
 		os.Exit(1)
 	}
-	log := logger.New(level, false) // JSON形式はデフォルトOFF
+	logDir := filepath.Join(cfg.App.OutputDir, ".log")
+	log, err := logger.New(level, logDir)
+	if err != nil {
+		fmt.Printf("❌ エラー: ログ初期化に失敗: %v\n", err)
+		os.Exit(1)
+	}
+	defer log.Close()
 
 	// 期間の計算（設定されたタイムゾーンを使用）
 	loc := cfg.App.Location
@@ -195,7 +201,7 @@ func handleRunCommand() {
 	defer cancel()
 
 	// ブリーフィング生成
-	fmt.Printf("🎙️  %s Briefing を生成中...\n\n", strings.Title(string(briefType)))
+	log.Print("🎙️  %s Briefing を生成中...\n\n", strings.Title(string(briefType)))
 
 	// 期間の表示
 	periodStr := fmt.Sprintf("%s 〜 %s", since.Format("2006-01-02"), until.Format("2006-01-02"))
@@ -204,7 +210,7 @@ func handleRunCommand() {
 	}
 
 	// 1. データ取得
-	fmt.Printf("📥 Step 1/7: データ取得中... [%s]\n", periodStr)
+	log.Print("📥 Step 1/7: データ取得中... [%s]\n", periodStr)
 	log.Debug("Starting data fetch", map[string]interface{}{
 		"brief_type": string(briefType),
 		"since":      since.Format("2006-01-02 15:04:05"),
@@ -216,110 +222,110 @@ func handleRunCommand() {
 		log.Error("Failed to fetch events", map[string]interface{}{
 			"error": err.Error(),
 		})
-		fmt.Printf("❌ エラー: データ取得に失敗: %v\n", err)
+		log.Print("❌ エラー: データ取得に失敗: %v\n", err)
 		os.Exit(1)
 	}
 	log.Info("Events fetched successfully", map[string]interface{}{
 		"count": len(events),
 	})
-	fmt.Printf("✓ 合計 %d 件のイベントを取得\n\n", len(events))
+	log.Print("✓ 合計 %d 件のイベントを取得\n\n", len(events))
 
 	// デバッグダンプ（オプション）
 	if debugDump {
 		if err := dumpEventsToFile(cfg.App.OutputDir, events, briefType); err != nil {
-			fmt.Printf("⚠️  警告: デバッグダンプに失敗: %v\n", err)
+			log.Print("⚠️  警告: デバッグダンプに失敗: %v\n", err)
 		}
 	}
 
 	// 2. 重要度計算（特徴量ベース）
-	fmt.Println("📊 Step 2/7: 重要度計算中...")
+	log.Print("📊 Step 2/7: 重要度計算中...\n")
 	weights := createImportanceWeights(&cfg.Importance)
 	calculator := importance.NewFeatureBasedCalculator(weights)
 	importance.CalculateAll(events, calculator)
 	log.Info("Importance calculated", map[string]interface{}{
 		"method": "feature-based",
 	})
-	fmt.Printf("✓ %d 件のイベントの重要度を計算\n\n", len(events))
+	log.Print("✓ %d 件のイベントの重要度を計算\n\n", len(events))
 
 	// 3. カテゴリ判定
-	fmt.Println("🏷️  Step 3/7: カテゴリ判定中...")
+	log.Print("🏷️  Step 3/7: カテゴリ判定中...\n")
 	cat := createCategorizer(&cfg.Categorizer)
 	cat.CategorizeAll(events)
-	fmt.Printf("✓ %d 件のイベントをカテゴリ分類\n\n", len(events))
+	log.Print("✓ %d 件のイベントをカテゴリ分類\n\n", len(events))
 
 	// 4. イベント要約
-	fmt.Println("📄 Step 4/7: イベント要約生成中...")
+	log.Print("📄 Step 4/7: イベント要約生成中...\n")
 	eventSum := createEventSummarizer(&cfg.EventSummarizer)
 	if err := eventSum.SummarizeAll(events); err != nil {
 		log.Warn("イベント要約の一部に失敗しました", map[string]interface{}{
 			"error": err.Error(),
 		})
 	}
-	fmt.Printf("✓ %d 件のイベントを要約\n\n", len(events))
+	log.Print("✓ %d 件のイベントを要約\n\n", len(events))
 
 	// 5. ブリーフィング要約生成
-	fmt.Println("📝 Step 5/7: ブリーフィング要約生成中...")
+	log.Print("📝 Step 5/7: ブリーフィング要約生成中...\n")
 	log.Debug("Generating brief summary")
 	brief, err := generateBrief(cfg, events, briefType)
 	if err != nil {
 		log.Error("Failed to generate brief", map[string]interface{}{
 			"error": err.Error(),
 		})
-		fmt.Printf("❌ エラー: 要約生成に失敗: %v\n", err)
+		log.Print("❌ エラー: 要約生成に失敗: %v\n", err)
 		os.Exit(1)
 	}
 	log.Info("Brief generated successfully", map[string]interface{}{
 		"event_count": brief.GetEventCount(),
 	})
-	fmt.Printf("✓ 要約生成完了 (対象: %d 件)\n\n", brief.GetEventCount())
+	log.Print("✓ 要約生成完了 (対象: %d 件)\n\n", brief.GetEventCount())
 
 	// 6. ファイル出力（Markdown + Script + Events）
-	fmt.Println("💾 Step 6/7: ファイル保存中...")
+	log.Print("💾 Step 6/7: ファイル保存中...\n")
 	markdownPath, scriptPath, err := saveMarkdown(cfg.App.OutputDir, brief)
 	if err != nil {
-		fmt.Printf("❌ エラー: ファイル保存に失敗: %v\n", err)
+		log.Print("❌ エラー: ファイル保存に失敗: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("✓ Markdownを保存: %s\n", markdownPath)
-	fmt.Printf("✓ スクリプトを保存: %s\n", scriptPath)
+	log.Print("✓ Markdownを保存: %s\n", markdownPath)
+	log.Print("✓ スクリプトを保存: %s\n", scriptPath)
 
 	// イベント詳細を保存
 	eventsPath, err := saveEventsDetail(cfg.App.OutputDir, events, brief)
 	if err != nil {
-		fmt.Printf("⚠️  警告: イベント詳細の保存に失敗: %v\n", err)
+		log.Print("⚠️  警告: イベント詳細の保存に失敗: %v\n", err)
 	} else {
-		fmt.Printf("✓ イベント詳細を保存: %s\n", eventsPath)
+		log.Print("✓ イベント詳細を保存: %s\n", eventsPath)
 	}
-	fmt.Println()
+	log.Print("\n")
 
 	// 7. 音声生成
 	if dryRun {
 		log.Info("Skipping audio generation (dry-run mode)")
-		fmt.Println("🔇 Step 7/7: 音声生成スキップ (--dry-run)")
-		fmt.Printf("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
-		fmt.Printf("📄 Markdown: %s\n", markdownPath)
-		fmt.Printf("📝 Script: %s\n", scriptPath)
+		log.Print("🔇 Step 7/7: 音声生成スキップ (--dry-run)\n")
+		log.Print("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
+		log.Print("📄 Markdown: %s\n", markdownPath)
+		log.Print("📝 Script: %s\n", scriptPath)
 		return
 	}
 
-	fmt.Println("🎤 Step 7/7: 音声ファイル生成中...")
+	log.Print("🎤 Step 7/7: 音声ファイル生成中...\n")
 	log.Debug("Generating audio file")
 	audioPath, err := generateAudio(ctx, cfg, brief, briefType)
 	if err != nil {
 		log.Error("Failed to generate audio", map[string]interface{}{
 			"error": err.Error(),
 		})
-		fmt.Printf("❌ エラー: 音声生成に失敗: %v\n", err)
+		log.Print("❌ エラー: 音声生成に失敗: %v\n", err)
 		os.Exit(1)
 	}
 	log.Info("Audio generated successfully", map[string]interface{}{
 		"path": audioPath,
 	})
-	fmt.Printf("✓ 音声を生成: %s\n\n", audioPath)
+	log.Print("✓ 音声を生成: %s\n\n", audioPath)
 
 	// Slack投稿（オプション）
 	if cfg.Slack.PostEnabled {
-		fmt.Println("\n📤 Slackに投稿中...")
+		log.Print("\n📤 Slackに投稿中...\n")
 		log.Debug("Uploading to Slack")
 
 		// Briefに音声パスを設定
@@ -330,10 +336,10 @@ func handleRunCommand() {
 			log.Warn("Slack投稿に失敗しました（処理は続行）", map[string]interface{}{
 				"error": err.Error(),
 			})
-			fmt.Printf("⚠️  警告: Slack投稿に失敗: %v\n", err)
+			log.Print("⚠️  警告: Slack投稿に失敗: %v\n", err)
 		} else {
 			log.Info("Successfully posted to Slack")
-			fmt.Printf("✓ Slackに投稿完了: %s\n", cfg.Slack.PostChannel)
+			log.Print("✓ Slackに投稿完了: %s\n", cfg.Slack.PostChannel)
 		}
 	}
 
@@ -342,12 +348,12 @@ func handleRunCommand() {
 		"markdown": markdownPath,
 		"audio":    audioPath,
 	})
-	fmt.Printf("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
-	fmt.Printf("📄 Markdown: %s\n", markdownPath)
-	fmt.Printf("📝 Script: %s\n", scriptPath)
-	fmt.Printf("🔊 Audio: %s\n", audioPath)
+	log.Print("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
+	log.Print("📄 Markdown: %s\n", markdownPath)
+	log.Print("📝 Script: %s\n", scriptPath)
+	log.Print("🔊 Audio: %s\n", audioPath)
 	if cfg.Slack.PostEnabled {
-		fmt.Printf("📤 Slack: #%s\n", cfg.Slack.PostChannel)
+		log.Print("📤 Slack: #%s\n", cfg.Slack.PostChannel)
 	}
 }
 
@@ -731,6 +737,9 @@ func saveEventsDetail(outDir string, events model.Events, brief *model.Brief) (s
 			sb.WriteString(fmt.Sprintf("- **場所**: %s\n", event.Location))
 			sb.WriteString(fmt.Sprintf("- **カテゴリ**: %s\n", event.Category))
 			sb.WriteString(fmt.Sprintf("- **重要度**: %d/100\n", event.Importance))
+			if breakdown, ok := event.Refs["importance_breakdown"]; ok && breakdown != "" {
+				sb.WriteString(fmt.Sprintf("- **重み内訳**: %s\n", breakdown))
+			}
 			sb.WriteString(fmt.Sprintf("- **時刻**: %s\n", event.Timestamp.Format("2006-01-02 15:04:05")))
 			sb.WriteString(fmt.Sprintf("- **投稿者**: %s\n", event.Author))
 			if event.URL != "" {
