@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/google/generative-ai-go/genai"
-	"github.com/masumomo/voice-brief/internal/model"
 	"google.golang.org/api/option"
+
+	"github.com/masumomo/voice-brief/internal/model"
+	"github.com/masumomo/voice-brief/internal/util"
 )
 
 // GeminiEventSummarizer はGemini APIを使用したイベント要約器
@@ -129,11 +131,11 @@ func (s *GeminiEventSummarizer) buildPrompt(event *model.Event) string {
 				commentsInfo += fmt.Sprintf("\n... 他 %d件", len(event.Comments)-3)
 				break
 			}
-			text := comment.Text
+			text := util.SanitizeUTF8(comment.Text)
 			if len(text) > 100 {
 				text = text[:100] + "..."
 			}
-			commentsInfo += fmt.Sprintf("\n- %s: %s", comment.Author, text)
+			commentsInfo += fmt.Sprintf("\n- %s: %s", util.SanitizeUTF8(comment.Author), text)
 		}
 	}
 
@@ -148,10 +150,10 @@ func (s *GeminiEventSummarizer) buildPrompt(event *model.Event) string {
 
 要約:`,
 		s.maxSummaryLen,
-		event.Title,
+		util.SanitizeUTF8(event.Title),
 		event.Source,
-		event.Location,
-		event.Body,
+		util.SanitizeUTF8(event.Location),
+		util.SanitizeUTF8(event.Body),
 		commentsInfo,
 	)
 }

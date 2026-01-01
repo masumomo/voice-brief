@@ -6,8 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/masumomo/voice-brief/internal/model"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/masumomo/voice-brief/internal/model"
+	"github.com/masumomo/voice-brief/internal/util"
 )
 
 // OpenAIEventSummarizer はOpenAI APIを使用したイベント要約器
@@ -128,11 +130,11 @@ func (s *OpenAIEventSummarizer) buildPrompt(event *model.Event) string {
 				commentsInfo += fmt.Sprintf("\n... 他 %d件", len(event.Comments)-3)
 				break
 			}
-			text := comment.Text
+			text := util.SanitizeUTF8(comment.Text)
 			if len(text) > 100 {
 				text = text[:100] + "..."
 			}
-			commentsInfo += fmt.Sprintf("\n- %s: %s", comment.Author, text)
+			commentsInfo += fmt.Sprintf("\n- %s: %s", util.SanitizeUTF8(comment.Author), text)
 		}
 	}
 
@@ -141,10 +143,10 @@ func (s *OpenAIEventSummarizer) buildPrompt(event *model.Event) string {
 場所: %s
 本文:
 %s%s`,
-		event.Title,
+		util.SanitizeUTF8(event.Title),
 		event.Source,
-		event.Location,
-		event.Body,
+		util.SanitizeUTF8(event.Location),
+		util.SanitizeUTF8(event.Body),
 		commentsInfo,
 	)
 }

@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/masumomo/voice-brief/internal/model"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/masumomo/voice-brief/internal/model"
+	"github.com/masumomo/voice-brief/internal/util"
 )
 
 // OpenAICategorizer はOpenAI APIを使用したカテゴリ判定
@@ -108,9 +110,9 @@ func (c *OpenAICategorizer) buildPrompt(event *model.Event) string {
 
 カテゴリ名のみ回答:`,
 		event.Source,
-		event.Location,
-		event.Title,
-		body,
+		util.SanitizeUTF8(event.Location),
+		util.SanitizeUTF8(event.Title),
+		util.SanitizeUTF8(body),
 	)
 }
 

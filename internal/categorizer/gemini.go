@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/google/generative-ai-go/genai"
-	"github.com/masumomo/voice-brief/internal/model"
 	"google.golang.org/api/option"
+
+	"github.com/masumomo/voice-brief/internal/model"
+	"github.com/masumomo/voice-brief/internal/util"
 )
 
 // GeminiCategorizer はGemini APIを使用したカテゴリ判定
@@ -108,9 +110,9 @@ func (c *GeminiCategorizer) buildPrompt(event *model.Event) string {
 
 回答はカテゴリ名のみ（incident, dev, biz, ops, other のいずれか）を返してください。`,
 		event.Source,
-		event.Location,
-		event.Title,
-		truncateText(event.Body, 500),
+		util.SanitizeUTF8(event.Location),
+		util.SanitizeUTF8(event.Title),
+		util.SanitizeUTF8(util.TruncateText(event.Body, 500)),
 	)
 }
 
@@ -141,14 +143,6 @@ func (c *GeminiCategorizer) parseCategory(response string) string {
 	}
 
 	return model.EventCategoryOther
-}
-
-// truncateText はテキストを指定長で切り詰めます
-func truncateText(text string, maxLen int) string {
-	if len(text) <= maxLen {
-		return text
-	}
-	return text[:maxLen] + "..."
 }
 
 // GetGeminiAPIKey は環境変数からGemini API Keyを取得します

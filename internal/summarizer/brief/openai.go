@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/masumomo/voice-brief/internal/model"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/masumomo/voice-brief/internal/model"
+	"github.com/masumomo/voice-brief/internal/util"
 )
 
 // OpenAISummarizer はOpenAI APIを使用した要約エンジン
@@ -20,8 +22,8 @@ type OpenAISummarizer struct {
 	client         *openai.Client
 
 	// コスト管理
-	totalTokensUsed     int
-	totalPromptTokens   int
+	totalTokensUsed       int
+	totalPromptTokens     int
 	totalCompletionTokens int
 }
 
@@ -144,7 +146,7 @@ func (s *OpenAISummarizer) generateBriefWithOpenAI(brief *model.Brief, briefType
 					Content: prompt,
 				},
 			},
-			Temperature: 0.3, // 一貫性を重視
+			Temperature: 0.3,  // 一貫性を重視
 			MaxTokens:   2000, // 出力トークン数制限
 		},
 	)
@@ -261,13 +263,13 @@ func (s *OpenAISummarizer) buildPrompt(brief *model.Brief, briefType model.Brief
 		sb.WriteString(fmt.Sprintf("## カテゴリ: %s (%d件)\n\n", category, len(events)))
 
 		for i, event := range events {
-			sb.WriteString(fmt.Sprintf("### %d. %s\n", i+1, event.Title))
-			sb.WriteString(fmt.Sprintf("- **ソース**: %s (%s)\n", event.Source, event.Location))
+			sb.WriteString(fmt.Sprintf("### %d. %s\n", i+1, util.SanitizeUTF8(event.Title)))
+			sb.WriteString(fmt.Sprintf("- **ソース**: %s (%s)\n", event.Source, util.SanitizeUTF8(event.Location)))
 			sb.WriteString(fmt.Sprintf("- **時刻**: %s\n", event.Timestamp.Format("2006-01-02 15:04")))
 			sb.WriteString(fmt.Sprintf("- **重要度**: %d/100\n", event.Importance))
 			if event.Body != "" {
 				// 本文が長い場合は省略
-				body := event.Body
+				body := util.SanitizeUTF8(event.Body)
 				if len(body) > 200 {
 					body = body[:200] + "..."
 				}

@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/google/generative-ai-go/genai"
-	"github.com/masumomo/voice-brief/internal/model"
 	"google.golang.org/api/option"
+
+	"github.com/masumomo/voice-brief/internal/model"
+	"github.com/masumomo/voice-brief/internal/util"
 )
 
 // GeminiSummarizer はGemini APIを使用した要約エンジン
@@ -230,9 +232,9 @@ func (s *GeminiSummarizer) buildPrompt(brief *model.Brief, briefType model.Brief
 	if len(slackEvents) > 0 {
 		sb.WriteString("### Slackメッセージ\n\n")
 		for i, event := range slackEvents {
-			sb.WriteString(fmt.Sprintf("%d. [%s] %s\n", i+1, event.Source, event.Title))
+			sb.WriteString(fmt.Sprintf("%d. [%s] %s\n", i+1, event.Source, util.SanitizeUTF8(event.Title)))
 			if event.Body != "" {
-				sb.WriteString(fmt.Sprintf("   内容: %s\n", event.Body))
+				sb.WriteString(fmt.Sprintf("   内容: %s\n", util.SanitizeUTF8(event.Body)))
 			}
 			sb.WriteString(fmt.Sprintf("   時刻: %s\n", event.Timestamp.Format("2006-01-02 15:04")))
 			sb.WriteString(fmt.Sprintf("   URL: %s\n", event.URL))
@@ -245,9 +247,9 @@ func (s *GeminiSummarizer) buildPrompt(brief *model.Brief, briefType model.Brief
 	if len(notionEvents) > 0 {
 		sb.WriteString("### Notion更新\n\n")
 		for i, event := range notionEvents {
-			sb.WriteString(fmt.Sprintf("%d. [%s] %s\n", i+1, event.Source, event.Title))
+			sb.WriteString(fmt.Sprintf("%d. [%s] %s\n", i+1, event.Source, util.SanitizeUTF8(event.Title)))
 			if event.Body != "" {
-				sb.WriteString(fmt.Sprintf("   内容: %s\n", event.Body))
+				sb.WriteString(fmt.Sprintf("   内容: %s\n", util.SanitizeUTF8(event.Body)))
 			}
 			sb.WriteString(fmt.Sprintf("   時刻: %s\n", event.Timestamp.Format("2006-01-02 15:04")))
 			sb.WriteString(fmt.Sprintf("   URL: %s\n", event.URL))
