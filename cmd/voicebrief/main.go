@@ -60,7 +60,7 @@ func main() {
 
 func handleRunCommand() {
 	// フラグの解析
-	var isDaily, isWeekly bool
+	var isDaily, isWeekly, isToday bool
 	var daysBack int
 	var outDir string
 	var dryRun bool
@@ -74,6 +74,8 @@ func handleRunCommand() {
 			isDaily = true
 		case "--weekly":
 			isWeekly = true
+		case "--today":
+			isToday = true
 		case "--days":
 			if i+1 < len(os.Args) {
 				if n, err := fmt.Sscanf(os.Args[i+1], "%d", &daysBack); err != nil || n != 1 {
@@ -111,12 +113,15 @@ func handleRunCommand() {
 	if isWeekly {
 		specifiedCount++
 	}
+	if isToday {
+		specifiedCount++
+	}
 	if daysBack > 0 {
 		specifiedCount++
 	}
 
 	if specifiedCount > 1 {
-		fmt.Println("エラー: --daily, --weekly, --days は同時に指定できません")
+		fmt.Println("エラー: --daily, --weekly, --today, --days は同時に指定できません")
 		os.Exit(1)
 	}
 
@@ -170,7 +175,11 @@ func handleRunCommand() {
 	now := time.Now().In(loc)
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 
-	if isDaily {
+	if isToday {
+		// --today: 今日の0時〜現在時刻
+		since = today
+		until = now
+	} else if isDaily {
 		// --daily: 前日の0時〜今日の0時（前日1日分）
 		since = today.Add(-time.Duration(cfg.Brief.DailyWindowHours) * time.Hour)
 		until = today
@@ -204,9 +213,13 @@ func handleRunCommand() {
 	log.Print("🎙️  %s Briefing を生成中...\n\n", strings.Title(string(briefType)))
 
 	// 期間の表示
-	periodStr := fmt.Sprintf("%s 〜 %s", since.Format("2006-01-02"), until.Format("2006-01-02"))
-	if daysBack == 1 && !isDaily && !isWeekly {
+	var periodStr string
+	if isToday {
+		periodStr = fmt.Sprintf("%s 00:00 〜 %s（本日）", today.Format("2006-01-02"), now.Format("15:04"))
+	} else if daysBack == 1 && !isDaily && !isWeekly {
 		periodStr = since.Format("2006-01-02") + "（昨日）"
+	} else {
+		periodStr = fmt.Sprintf("%s 〜 %s", since.Format("2006-01-02"), until.Format("2006-01-02"))
 	}
 
 	// 1. データ取得
@@ -1052,6 +1065,7 @@ func printUsage() {
 	fmt.Println("音声で聞く、チームの最新情報")
 	fmt.Println("\nUsage:")
 	fmt.Println("  voicebrief run                  Briefingを生成（デフォルト: 昨日一日分）")
+	fmt.Println("  voicebrief run --today          Today Briefing（今日の0時〜現在）")
 	fmt.Println("  voicebrief run --days N         過去N日分のBriefingを生成")
 	fmt.Println("  voicebrief run --daily          Daily Briefing（過去24時間）")
 	fmt.Println("  voicebrief run --weekly         Weekly Briefing（過去7日間）")
@@ -1059,6 +1073,7 @@ func printUsage() {
 	fmt.Println("  voicebrief doctor               API接続を確認")
 	fmt.Println("  voicebrief version              バージョン情報を表示")
 	fmt.Println("\nOptions:")
+	fmt.Println("  --today                         今日の0時〜現在までのデータを取得")
 	fmt.Println("  --days N                        過去N日分のデータを取得 (default: 1)")
 	fmt.Println("  --config PATH                   設定ファイルパス (default: ./config.yaml)")
 	fmt.Println("  --out-dir PATH                  出力ディレクトリ (default: ./out)")
@@ -1067,6 +1082,7 @@ func printUsage() {
 	fmt.Println("  --log-level LEVEL               ログレベル (debug|info|warn|error)")
 	fmt.Println("\nExamples:")
 	fmt.Println("  voicebrief run                  # 昨日一日分を取得")
+	fmt.Println("  voicebrief run --today          # 今日の0時〜現在を取得")
 	fmt.Println("  voicebrief run --days 3         # 過去3日分を取得")
 	fmt.Println("  voicebrief run --dry-run        # 音声なしで原稿のみ生成")
 }

@@ -25,7 +25,8 @@
       "WebSearch",
       "Bash(cat:*)",
       "WebFetch(domain:ai.google.dev)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

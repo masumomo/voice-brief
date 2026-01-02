@@ -4,15 +4,15 @@
 <dict>
     <!-- ジョブ識別名 -->
     <key>Label</key>
-    <string>com.voicebrief.daily</string>
+    <string>com.voicebrief.today</string>
 
     <!-- 実行するプログラム -->
     <key>ProgramArguments</key>
     <array>
-        <!-- REPLACE_WITH_VOICEBRIEF_PATH は install_daily.sh で置換される -->
+        <!-- REPLACE_WITH_VOICEBRIEF_PATH は install_today.sh で置換される -->
         <string>REPLACE_WITH_VOICEBRIEF_PATH</string>
         <string>run</string>
-        <string>--daily</string>
+        <string>--today</string>
     </array>
 
     <!-- 環境変数（トークン設定） -->
@@ -23,52 +23,52 @@
         <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
 
-    <!-- 実行スケジュール: 火〜土曜日 8:00（平日の翌日のみ） -->
+    <!-- 実行スケジュール: 月〜金曜日 21:00（当日分を夜に取得） -->
     <!-- Weekday: 0=日, 1=月, 2=火, 3=水, 4=木, 5=金, 6=土 -->
     <key>StartCalendarInterval</key>
     <array>
-        <!-- 火曜日 8:00 (月曜分) -->
+        <!-- 月曜日 21:00 -->
+        <dict>
+            <key>Weekday</key>
+            <integer>1</integer>
+            <key>Hour</key>
+            <integer>21</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <!-- 火曜日 21:00 -->
         <dict>
             <key>Weekday</key>
             <integer>2</integer>
             <key>Hour</key>
-            <integer>8</integer>
+            <integer>21</integer>
             <key>Minute</key>
             <integer>0</integer>
         </dict>
-        <!-- 水曜日 8:00 (火曜分) -->
+        <!-- 水曜日 21:00 -->
         <dict>
             <key>Weekday</key>
             <integer>3</integer>
             <key>Hour</key>
-            <integer>8</integer>
+            <integer>21</integer>
             <key>Minute</key>
             <integer>0</integer>
         </dict>
-        <!-- 木曜日 8:00 (水曜分) -->
+        <!-- 木曜日 21:00 -->
         <dict>
             <key>Weekday</key>
             <integer>4</integer>
             <key>Hour</key>
-            <integer>8</integer>
+            <integer>21</integer>
             <key>Minute</key>
             <integer>0</integer>
         </dict>
-        <!-- 金曜日 8:00 (木曜分) -->
+        <!-- 金曜日 21:00 -->
         <dict>
             <key>Weekday</key>
             <integer>5</integer>
             <key>Hour</key>
-            <integer>8</integer>
-            <key>Minute</key>
-            <integer>0</integer>
-        </dict>
-        <!-- 土曜日 8:00 (金曜分) -->
-        <dict>
-            <key>Weekday</key>
-            <integer>6</integer>
-            <key>Hour</key>
-            <integer>8</integer>
+            <integer>21</integer>
             <key>Minute</key>
             <integer>0</integer>
         </dict>
@@ -76,15 +76,15 @@
 
     <!-- 標準出力・標準エラー出力のログファイル -->
     <key>StandardOutPath</key>
-    <string>/tmp/voicebrief-daily.log</string>
+    <string>/tmp/voicebrief-today.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/voicebrief-daily-error.log</string>
+    <string>/tmp/voicebrief-today-error.log</string>
 
     <!-- システム起動時に自動的にロードする -->
     <key>RunAtLoad</key>
     <false/>
 
-    <!-- プロセスがクラッシュした場合でも再起動しない（Daily実行なので不要） -->
+    <!-- プロセスがクラッシュした場合でも再起動しない -->
     <key>KeepAlive</key>
     <false/>
 

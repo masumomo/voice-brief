@@ -9,7 +9,7 @@
     <!-- 実行するプログラム -->
     <key>ProgramArguments</key>
     <array>
-        <!-- REPLACE_WITH_VOICEBRIEF_PATH は install.sh で置換される -->
+        <!-- REPLACE_WITH_VOICEBRIEF_PATH は install_weekly.sh で置換される -->
         <string>REPLACE_WITH_VOICEBRIEF_PATH</string>
         <string>run</string>
         <string>--weekly</string>
@@ -23,13 +23,14 @@
         <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
 
-    <!-- 実行スケジュール: 毎週月曜日8:00 -->
+    <!-- 実行スケジュール: 土曜日 9:00 のみ -->
+    <!-- Weekday: 0=日, 1=月, 2=火, 3=水, 4=木, 5=金, 6=土 -->
     <key>StartCalendarInterval</key>
     <dict>
         <key>Weekday</key>
-        <integer>1</integer>  <!-- 1 = Monday -->
+        <integer>6</integer>
         <key>Hour</key>
-        <integer>8</integer>
+        <integer>9</integer>
         <key>Minute</key>
         <integer>0</integer>
     </dict>
