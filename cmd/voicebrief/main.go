@@ -328,13 +328,14 @@ func handleRunCommand() {
 		log.Error("Failed to generate audio", map[string]interface{}{
 			"error": err.Error(),
 		})
-		log.Print("❌ エラー: 音声生成に失敗: %v\n", err)
-		os.Exit(1)
+		log.Print("⚠️  警告: 音声生成に失敗（テキストのみで続行）: %v\n", err)
+		audioPath = "" // 音声なしで続行
+	} else {
+		log.Info("Audio generated successfully", map[string]interface{}{
+			"path": audioPath,
+		})
+		log.Print("✓ 音声を生成: %s\n\n", audioPath)
 	}
-	log.Info("Audio generated successfully", map[string]interface{}{
-		"path": audioPath,
-	})
-	log.Print("✓ 音声を生成: %s\n\n", audioPath)
 
 	// Slack投稿（オプション）
 	if cfg.Slack.PostEnabled {
@@ -344,7 +345,9 @@ func handleRunCommand() {
 		// Briefに音声パスを設定
 		brief.AudioPath = audioPath
 
-		slackUploader := uploader.NewSlackUploader(&cfg.Slack, cfg.Slack.UploadAudio)
+		// 音声がない場合はアップロードをスキップ
+		uploadAudio := cfg.Slack.UploadAudio && audioPath != ""
+		slackUploader := uploader.NewSlackUploader(&cfg.Slack, uploadAudio)
 		if err := slackUploader.Upload(ctx, brief); err != nil {
 			log.Warn("Slack投稿に失敗しました（処理は続行）", map[string]interface{}{
 				"error": err.Error(),
@@ -357,14 +360,21 @@ func handleRunCommand() {
 	}
 
 	// 完了メッセージ
-	log.Info("Brief generation completed", map[string]interface{}{
+	logFields := map[string]interface{}{
 		"markdown": markdownPath,
-		"audio":    audioPath,
-	})
+	}
+	if audioPath != "" {
+		logFields["audio"] = audioPath
+	}
+	log.Info("Brief generation completed", logFields)
 	log.Print("\n✅ %s Briefing生成完了！\n", strings.Title(string(briefType)))
 	log.Print("📄 Markdown: %s\n", markdownPath)
 	log.Print("📝 Script: %s\n", scriptPath)
-	log.Print("🔊 Audio: %s\n", audioPath)
+	if audioPath != "" {
+		log.Print("🔊 Audio: %s\n", audioPath)
+	} else {
+		log.Print("🔇 Audio: (生成失敗のためスキップ)\n")
+	}
 	if cfg.Slack.PostEnabled {
 		log.Print("📤 Slack: #%s\n", cfg.Slack.PostChannel)
 	}
