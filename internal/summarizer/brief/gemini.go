@@ -225,8 +225,9 @@ func (s *GeminiSummarizer) buildPrompt(brief *model.Brief, briefType model.Brief
 	sb.WriteString("## ガイドライン\n")
 	sb.WriteString("- 重要度の高い順に整理\n")
 	sb.WriteString("- 簡潔に要点をまとめる（各項目1-2文）\n")
-	sb.WriteString("- 音声スクリプトは「おはようございます」などの挨拶から始める\n")
-	sb.WriteString("- 音声スクリプトは耳で聞いて理解しやすい自然な話し言葉で\n\n")
+	sb.WriteString(fmt.Sprintf("- 現在時刻は %s です。この時間帯に適した挨拶から音声スクリプトを始めてください\n", time.Now().Format("15:04")))
+	sb.WriteString("- 音声スクリプトは耳で聞いて理解しやすい自然な話し言葉で\n")
+	sb.WriteString("- 少し皮肉っぽくクスッと笑えるトーンで。ただし情報は正確に伝えること\n\n")
 
 	// イベントデータ
 	sb.WriteString("## 入力データ\n\n")
@@ -285,3 +286,4 @@ func GetAPIKey(envName string) string {
 	}
 	return os.Getenv(envName)
 }
+
