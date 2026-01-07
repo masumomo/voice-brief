@@ -348,7 +348,12 @@ func handleRunCommand() {
 		// 音声がない場合はアップロードをスキップ
 		uploadAudio := cfg.Slack.UploadAudio && audioPath != ""
 		slackUploader := uploader.NewSlackUploader(&cfg.Slack, uploadAudio)
-		if err := slackUploader.Upload(ctx, brief); err != nil {
+
+		// Slack投稿用に新しいコンテキストを作成（音声生成のタイムアウトに影響されないように）
+		slackCtx, slackCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer slackCancel()
+
+		if err := slackUploader.Upload(slackCtx, brief); err != nil {
 			log.Warn("Slack投稿に失敗しました（処理は続行）", map[string]interface{}{
 				"error": err.Error(),
 			})
