@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- ジョブ識別名 -->
+    <key>Label</key>
+    <string>com.voicebrief.tech-weekly</string>
+
+    <!-- 実行するプログラム -->
+    <key>ProgramArguments</key>
+    <array>
+        <!-- REPLACE_WITH_VOICEBRIEF_PATH は install_tech_weekly.sh で置換される -->
+        <string>REPLACE_WITH_VOICEBRIEF_PATH</string>
+        <string>run</string>
+        <string>--weekly</string>
+        <string>--config</string>
+        <string>REPLACE_WITH_CONFIG_PATH</string>
+    </array>
+
+    <!-- 環境変数（トークン設定） -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- 実行スケジュール: 日曜日 10:00 -->
+    <!-- Weekday: 0=日, 1=月, 2=火, 3=水, 4=木, 5=金, 6=土 -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>10</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- 標準出力・標準エラー出力のログファイル -->
+    <key>StandardOutPath</key>
+    <string>/tmp/voicebrief-tech-weekly.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/voicebrief-tech-weekly-error.log</string>
+
+    <!-- システム起動時に自動的にロードする -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- プロセスがクラッシュした場合でも再起動しない -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- 作業ディレクトリ -->
+    <key>WorkingDirectory</key>
+    <string>REPLACE_WITH_PROJECT_DIR</string>
+</dict>
+</plist>

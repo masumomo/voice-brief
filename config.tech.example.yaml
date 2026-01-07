@@ -1,0 +1,81 @@
+# VoiceBrief Tech Weekly Configuration
+# tech関連のアップデートをチェックするための設定例
+# cp config.tech.example.yaml config.tech.yaml して編集
+
+app:
+  output_dir: "./out/tech"
+  log_level: "info"
+  timezone: "Asia/Tokyo"
+
+slack:
+  token_env: "VOICE_BRIEF_SLACK_TOKEN"
+
+  # tech関連チャンネルのみ監視
+  channels:
+    - id: "C01234567"
+      name: "dev-backend"
+    - id: "C09876543"
+      name: "dev-frontend"
+    # - id: "CXXXXXXXX"
+    #   name: "tech-news"
+
+  filters:
+    exclude_bots: false  # bot投稿（RSSフィード等）も含める
+    exclude_short_messages: true
+    min_length: 20
+    exclude_keywords: []
+
+  post_enabled: false
+  post_channel: ""
+  upload_audio: false
+
+notion:
+  token_env: "VOICE_BRIEF_NOTION_TOKEN"
+
+  # tech関連データベースのみ監視
+  databases:
+    - id: "db-uuid-tech-docs"
+      name: "Tech Docs"
+      properties: ["Status", "Tag", "Category"]
+      max_content_blocks: 10
+    # - id: "db-uuid-adr"
+    #   name: "ADR (Architecture Decision Records)"
+    #   properties: ["Status", "Decision"]
+
+github:
+  enabled: false
+  token_env: "VOICE_BRIEF_GITHUB_TOKEN"
+  username: ""
+  repositories: []
+
+brief:
+  daily_window_hours: 24
+  weekly_days: 7
+  max_items_daily: 10
+  max_items_weekly: 30
+
+importance:
+  weights:
+    keyword_score: 25.0
+    is_dev: 15.0
+    is_incident: 30.0
+
+categorizer:
+  provider: "rule"
+
+event_summarizer:
+  provider: "rule"
+  max_summary_len: 300
+
+brief_summarizer:
+  provider: "rule"
+
+tts:
+  provider: "say"
+  voice: "Kyoko"
+  rate: 1.1
+  format: "m4a"
+
+runtime:
+  max_concurrency: 5
+  api_timeout_seconds: 60

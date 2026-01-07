@@ -28,7 +28,6 @@ out/
 
 # Environment and config files
 .env
-config.yaml
 
 # macOS
 .DS_Store
@@ -45,3 +44,5 @@ tmp/
 temp/
 
 planed_spec*.md
+config.tech.yaml
+config.yaml
