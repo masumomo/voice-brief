@@ -224,6 +224,18 @@ func (f *SlackFetcher) GetUserDisplayName(userID string) string {
 // mentionRegex はSlackメンション形式にマッチする正規表現
 var mentionRegex = regexp.MustCompile(`<@(U[A-Z0-9]+)>`)
 
+// groupMentionRegex はSlackグループメンション形式にマッチする正規表現
+// <!here>, <!channel>, <!everyone>, <!subteam^SXXXXX|@groupname> など
+var groupMentionRegex = regexp.MustCompile(`<!([a-z]+)(?:\^[A-Z0-9]+)?(?:\|@?([^>]+))?>`)
+
+// groupMentionNames はグループメンションの置換名
+var groupMentionNames = map[string]string{
+	"here":     "チャンネルメンバー(オンライン)",
+	"channel":  "チャンネルメンバー全員",
+	"everyone": "ワークスペース全員",
+	"subteam":  "", // subteamはラベル部分から取得
+}
+
 // ExtractMentionedUsers はテキスト内のSlackメンションからユーザー名のリストを抽出します
 func (f *SlackFetcher) ExtractMentionedUsers(text string) []string {
 	matches := mentionRegex.FindAllStringSubmatch(text, -1)
@@ -246,13 +258,45 @@ func (f *SlackFetcher) ExtractMentionedUsers(text string) []string {
 }
 
 // ReplaceMentions はテキスト内のSlackメンション（<@UXXXXX>）をDisplay nameに置換します
+// グループメンション（<!here>, <!channel>, <!everyone>, <!subteam^...>）も置換します
 func (f *SlackFetcher) ReplaceMentions(text string) string {
-	return mentionRegex.ReplaceAllStringFunc(text, func(match string) string {
+	// 個人メンションを置換
+	result := mentionRegex.ReplaceAllStringFunc(text, func(match string) string {
 		// <@U078XKCNW5V> から U078XKCNW5V を抽出
 		userID := mentionRegex.FindStringSubmatch(match)[1]
 		displayName := f.getUserName(userID)
 		return displayName
 	})
+
+	// グループメンションを置換
+	result = groupMentionRegex.ReplaceAllStringFunc(result, func(match string) string {
+		submatches := groupMentionRegex.FindStringSubmatch(match)
+		if len(submatches) < 2 {
+			return match
+		}
+
+		mentionType := submatches[1] // here, channel, everyone, subteam など
+
+		// subteamの場合はラベル部分を使用
+		if mentionType == "subteam" && len(submatches) >= 3 && submatches[2] != "" {
+			return submatches[2] // @groupname の部分
+		}
+
+		// 定義済みのグループメンションを置換
+		if replacement, ok := groupMentionNames[mentionType]; ok && replacement != "" {
+			return replacement
+		}
+
+		// 不明なグループメンションはラベル部分があればそれを使用
+		if len(submatches) >= 3 && submatches[2] != "" {
+			return submatches[2]
+		}
+
+		// ラベルがない場合はメンションタイプをそのまま返す
+		return mentionType
+	})
+
+	return result
 }
 
 // applyFilters はフィルタを適用します
