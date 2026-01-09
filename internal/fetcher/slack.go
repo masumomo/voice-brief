@@ -3,8 +3,10 @@ package fetcher
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/masumomo/voice-brief/internal/config"
@@ -15,15 +17,18 @@ import (
 
 // SlackFetcher はSlackからイベントを取得します
 type SlackFetcher struct {
-	client *slack.Client
-	config *config.SlackConfig
+	client    *slack.Client
+	config    *config.SlackConfig
+	userCache map[string]*slack.User // ユーザーIDをキーにしたキャッシュ
+	cacheMu   sync.RWMutex           // キャッシュの排他制御
 }
 
 // NewSlackFetcher は新しいSlackFetcherを作成します
 func NewSlackFetcher(cfg *config.SlackConfig) *SlackFetcher {
 	return &SlackFetcher{
-		client: slack.New(cfg.Token),
-		config: cfg,
+		client:    slack.New(cfg.Token),
+		config:    cfg,
+		userCache: make(map[string]*slack.User),
 	}
 }
 
@@ -120,11 +125,28 @@ func (f *SlackFetcher) messageToEvent(msg *slack.Message, channel config.Channel
 	event.ID = msg.Timestamp
 	event.Timestamp = parseSlackTimestamp(msg.Timestamp)
 	event.Location = channel.Name
-	event.Author = f.getUserName(msg.User)
 
-	// タイトルは本文の先頭50文字
-	event.Title = truncate(msg.Text, 50)
-	event.Body = msg.Text
+	authorName := f.getUserName(msg.User)
+	event.Author = authorName
+
+	// メンション先のユーザー名を抽出
+	mentionedUsers := f.ExtractMentionedUsers(msg.Text)
+
+	// メンションをDisplay nameに置換
+	bodyText := f.ReplaceMentions(msg.Text)
+
+	// メンション先がある場合は、誰から誰へかを明示
+	if len(mentionedUsers) > 0 {
+		event.Refs["mentioned_to"] = strings.Join(mentionedUsers, ", ")
+		// 本文の先頭に「発信者→宛先」を付加（LLMが文脈を理解しやすいように）
+		// 例: 「[発信者: Aさん → 宛先: Bさん] レビューお願いします」
+		mentionPrefix := fmt.Sprintf("[発信者: %s → 宛先: %s] ", authorName, strings.Join(mentionedUsers, ", "))
+		bodyText = mentionPrefix + bodyText
+	}
+
+	// タイトルは本文の先頭50文字（プレフィックスなし）
+	event.Title = truncate(f.ReplaceMentions(msg.Text), 50)
+	event.Body = bodyText
 
 	// URL生成（workspace ID は実際には取得する必要がある。簡易版として省略）
 	event.URL = fmt.Sprintf("https://slack.com/archives/%s/p%s", channel.ID, strings.ReplaceAll(msg.Timestamp, ".", ""))
@@ -145,16 +167,92 @@ func (f *SlackFetcher) messageToEvent(msg *slack.Message, channel config.Channel
 	return event
 }
 
-// getUserName はユーザーIDからユーザー名を取得します（簡易版）
+// getUserName はユーザーIDからユーザー名を取得します
 func (f *SlackFetcher) getUserName(userID string) string {
 	if userID == "" {
 		return "Unknown"
 	}
 
-	// 本来はキャッシュして users.info APIを呼ぶべきだが、
-	// v1.0では簡易的にユーザーIDをそのまま返す
-	// TODO: Phase 1.1+ でユーザー名取得を実装
+	user := f.getUser(userID)
+	if user == nil {
+		return userID
+	}
+
+	// Display name を優先、なければ Real name、それもなければ Name
+	if user.Profile.DisplayName != "" {
+		return user.Profile.DisplayName
+	}
+	if user.Profile.RealName != "" {
+		return user.Profile.RealName
+	}
+	if user.Name != "" {
+		return user.Name
+	}
 	return userID
+}
+
+// getUser はユーザーIDからユーザー情報を取得します（キャッシュ付き）
+func (f *SlackFetcher) getUser(userID string) *slack.User {
+	// まずキャッシュをチェック
+	f.cacheMu.RLock()
+	if user, ok := f.userCache[userID]; ok {
+		f.cacheMu.RUnlock()
+		return user
+	}
+	f.cacheMu.RUnlock()
+
+	// APIから取得
+	user, err := f.client.GetUserInfo(userID)
+	if err != nil {
+		// エラーの場合はnilを返す（キャッシュしない）
+		return nil
+	}
+
+	// キャッシュに保存
+	f.cacheMu.Lock()
+	f.userCache[userID] = user
+	f.cacheMu.Unlock()
+
+	return user
+}
+
+// GetUserDisplayName はユーザーIDからDisplay nameを取得します（外部公開用）
+func (f *SlackFetcher) GetUserDisplayName(userID string) string {
+	return f.getUserName(userID)
+}
+
+// mentionRegex はSlackメンション形式にマッチする正規表現
+var mentionRegex = regexp.MustCompile(`<@(U[A-Z0-9]+)>`)
+
+// ExtractMentionedUsers はテキスト内のSlackメンションからユーザー名のリストを抽出します
+func (f *SlackFetcher) ExtractMentionedUsers(text string) []string {
+	matches := mentionRegex.FindAllStringSubmatch(text, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	// 重複を除去しつつ順序を保持
+	seen := make(map[string]bool)
+	var users []string
+	for _, match := range matches {
+		userID := match[1]
+		if !seen[userID] {
+			seen[userID] = true
+			displayName := f.getUserName(userID)
+			users = append(users, displayName)
+		}
+	}
+	return users
+}
+
+// ReplaceMentions はテキスト内のSlackメンション（<@UXXXXX>）をDisplay nameに置換します
+func (f *SlackFetcher) ReplaceMentions(text string) string {
+	return mentionRegex.ReplaceAllStringFunc(text, func(match string) string {
+		// <@U078XKCNW5V> から U078XKCNW5V を抽出
+		userID := mentionRegex.FindStringSubmatch(match)[1]
+		displayName := f.getUserName(userID)
+		return displayName
+	})
 }
 
 // applyFilters はフィルタを適用します
@@ -228,7 +326,7 @@ func (f *SlackFetcher) fetchThreadReplies(ctx context.Context, channelID, thread
 
 		parentEvent.AddComment(
 			f.getUserName(reply.User),
-			reply.Text,
+			f.ReplaceMentions(reply.Text),
 			parseSlackTimestamp(reply.Timestamp),
 		)
 		commentCount++
