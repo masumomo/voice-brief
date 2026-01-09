@@ -1,6 +1,6 @@
 #!/bin/bash
 # install_today.sh - Today's Daily Briefing用のlaunchdジョブをインストール
-# 実行タイミング: 月〜金曜日 21:00（当日分のデータを夜に取得）
+# 実行タイミング: 月〜金曜日 23:00（当日分のデータを夜に取得）
 
 set -e
 
@@ -70,8 +70,8 @@ echo "✅ Today インストール完了！"
 echo "========================================"
 echo ""
 echo "スケジュール:"
-echo "  月〜金曜日 21:00 に実行"
-echo "  （当日 0:00〜21:00 のデータを取得）"
+echo "  月〜金曜日 23:00 に実行"
+echo "  （当日 0:00〜23:00 のデータを取得）"
 echo ""
 echo "ログファイル:"
 echo "  /tmp/voicebrief-today.log"

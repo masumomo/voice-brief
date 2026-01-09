@@ -23,52 +23,52 @@
         <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
 
-    <!-- 実行スケジュール: 月〜金曜日 21:00（当日分を夜に取得） -->
+    <!-- 実行スケジュール: 月〜金曜日 23:00（当日分を夜に取得） -->
     <!-- Weekday: 0=日, 1=月, 2=火, 3=水, 4=木, 5=金, 6=土 -->
     <key>StartCalendarInterval</key>
     <array>
-        <!-- 月曜日 21:00 -->
+        <!-- 月曜日 23:00 -->
         <dict>
             <key>Weekday</key>
             <integer>1</integer>
             <key>Hour</key>
-            <integer>21</integer>
+            <integer>23</integer>
             <key>Minute</key>
             <integer>0</integer>
         </dict>
-        <!-- 火曜日 21:00 -->
+        <!-- 火曜日 23:00 -->
         <dict>
             <key>Weekday</key>
             <integer>2</integer>
             <key>Hour</key>
-            <integer>21</integer>
+            <integer>23</integer>
             <key>Minute</key>
             <integer>0</integer>
         </dict>
-        <!-- 水曜日 21:00 -->
+        <!-- 水曜日 23:00 -->
         <dict>
             <key>Weekday</key>
             <integer>3</integer>
             <key>Hour</key>
-            <integer>21</integer>
+            <integer>23</integer>
             <key>Minute</key>
             <integer>0</integer>
         </dict>
-        <!-- 木曜日 21:00 -->
+        <!-- 木曜日 23:00 -->
         <dict>
             <key>Weekday</key>
             <integer>4</integer>
             <key>Hour</key>
-            <integer>21</integer>
+            <integer>23</integer>
             <key>Minute</key>
             <integer>0</integer>
         </dict>
-        <!-- 金曜日 21:00 -->
+        <!-- 金曜日 23:00 -->
         <dict>
             <key>Weekday</key>
             <integer>5</integer>
             <key>Hour</key>
-            <integer>21</integer>
+            <integer>23</integer>
             <key>Minute</key>
             <integer>0</integer>
         </dict>
