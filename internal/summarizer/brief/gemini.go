@@ -228,7 +228,7 @@ func (s *GeminiSummarizer) buildPrompt(brief *model.Brief, briefType model.Brief
 	sb.WriteString(fmt.Sprintf("- 現在時刻は %s です。この時間帯に適した挨拶から音声スクリプトを始めてください\n", time.Now().Format("15:04")))
 	sb.WriteString("- 音声スクリプトは耳で聞いて理解しやすい自然な話し言葉で\n")
 	sb.WriteString("- 少し皮肉っぽくクスッと笑えるトーンで。たまにツッコミどころを満載の一言を入れてください。ただし情報は正確に伝えること\n")
-	sb.WriteString("- 人名が「〜さん」「〜様」「〜さま」形式で記載されている場合、アルファベットの頭文字に置換してください（例：植木さん→Uさん、増元様→M様、田中さま→Tさま）\n\n")
+	sb.WriteString("- 人名が「〜さん」「〜様」「〜さま」形式で記載されている場合、アルファベットの頭文字に置換してください（例：上原さん→Uさん、増元様→M様、田中さま→Tさま）\n\n")
 
 	// イベントデータ
 	sb.WriteString("## 入力データ\n\n")
