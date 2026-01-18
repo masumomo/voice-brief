@@ -10,6 +10,7 @@ LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 TODAY_PLIST="com.voicebrief.today.plist"
 DAILY_PLIST="com.voicebrief.daily.plist"
 WEEKLY_PLIST="com.voicebrief.weekly.plist"
+TECH_WEEKLY_PLIST="com.voicebrief.tech-weekly.plist"
 
 # Today jobのアンロード
 if [ -f "$LAUNCH_AGENTS_DIR/$TODAY_PLIST" ]; then
@@ -39,6 +40,16 @@ if [ -f "$LAUNCH_AGENTS_DIR/$WEEKLY_PLIST" ]; then
     echo "✓ Weekly job削除完了"
 else
     echo "ℹ️  Weekly jobは登録されていません"
+fi
+
+# Tech Weekly jobのアンロード
+if [ -f "$LAUNCH_AGENTS_DIR/$TECH_WEEKLY_PLIST" ]; then
+    echo "Tech Weekly jobをアンロード中..."
+    launchctl unload "$LAUNCH_AGENTS_DIR/$TECH_WEEKLY_PLIST" 2>/dev/null || true
+    rm "$LAUNCH_AGENTS_DIR/$TECH_WEEKLY_PLIST"
+    echo "✓ Tech Weekly job削除完了"
+else
+    echo "ℹ️  Tech Weekly jobは登録されていません"
 fi
 
 echo ""
